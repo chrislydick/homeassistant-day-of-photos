@@ -7,26 +7,22 @@ from google_auth_oauthlib.flow import InstalledAppFlow
 from googleapiclient.discovery import build
 from google.auth.transport.requests import Request
 
+# Later support of Apple Photos, Dropboox, Live.com/Onedrive, etc
+platform = 'google'
 
-#subprocess.run(["rm", "-f", "/home/pi/images/*.jpg"])
-#subprocess.run(["rm", "-f", "/home/pi/images/*.HEIC"])
+
 
 SCOPES = ['https://www.googleapis.com/auth/photoslibrary.readonly']
-
-
 
 creds = None
 if os.path.exists('token.pickle'):
     with open('token.pickle', 'rb') as token:
         creds = pickle.load(token)
 
-
-
 if not creds or not creds.valid:
     if creds and creds.expired and creds.refresh_token:
         creds.refresh(Request())
     else:
-#        flow = InstalledAppFlow.from_client_secrets_file('credentials.json', SCOPES)
         flow = InstalledAppFlow.from_client_secrets_file('client_secret.json', SCOPES)
         creds = flow.run_local_server(port=0)
         # Save the credentials for the next run
@@ -40,7 +36,7 @@ service = build('photoslibrary', 'v1', credentials=creds, discoveryServiceUrl=DI
 results = service.mediaItems().list(pageSize=10).execute()
 items = results.get('mediaItems', [])
 
-def get_media_items_for_same_day_in_past_years(service, years_back=5, page_size=100, start=None):
+def get_media_items_same_day(service, years_back=5, page_size=100, start=None):
     if (start != None):
         today=datetime.strptime(start,'%Y-%m-%d')
     else:
@@ -82,35 +78,10 @@ def get_media_items_for_same_day_in_past_years(service, years_back=5, page_size=
     return response.get('mediaItems', [])
 
 # Get media items
-media_items = get_media_items_for_same_day_in_past_years(service)
+media_items = get_media_items_same_day(service)
 year = datetime.now().year - 5
 day = datetime.now().day
 month = datetime.now().month
-
-
-
-
-def download_media_items(media_items, local_path):
-    if not os.path.exists(local_path):
-        os.makedirs(local_path)
-
-    for item in media_items:
-        file_name = item['filename']
-        image_url = item['baseUrl'] + '=d'  # '=d' retrieves the image in its original resolution
-        response = requests.get(image_url)
-
-        if response.status_code == 200:
-            with open(os.path.join(local_path, file_name), 'wb') as f:
-                f.write(response.content)
-        else:
-            print(f"Failed to download {file_name} from URL: {image_url}")
-
-# Specify your local directory path
-local_directory_path = '/home/pi/images/'
-
-# Download media items to the specified local directory
-#download_media_items(media_items, local_directory_path)
-
 
 
 def download_media_items(media_items, local_path):
