@@ -1,9 +1,9 @@
 #!/usr/bin/bash
 
-rm -f /home/pi/images/*
+mkdir images/
 
-python /home/pi/rotate_images.py
+python rotate_images.py
 
 ssh -p 22222 root@192.168.1.146 'rm -f /media/*.jpg'
 
-scp -P 22222 /home/pi/images/*.jpg root@192.168.1.146:/media/.
+scp -P 22222 images/*.jpg root@192.168.1.146:/media/.
