@@ -100,7 +100,7 @@ def download_media_items(media_items, local_path):
             print(f"Failed to download {file_name} from URL: {image_url}")
 
 # Specify your local directory path
-local_directory_path = '/home/pi/images/'
+local_directory_path = 'images/'
 
 # Download media items to the specified local directory
 download_media_items(media_items, local_directory_path)
@@ -127,7 +127,7 @@ def convert_heic_to_jpeg(input_dir):
                     os.remove(output_file_path + "_original")
 
 # Call the function with the directory containing your HEIC files
-convert_heic_to_jpeg("/home/pi/images/")
+convert_heic_to_jpeg("images/")
 
 
 #print("executing the rm command remotely...")
