@@ -13,8 +13,9 @@ Install dependencies in a Python environment:
 pip install -r requirements.txt
 ```
 
-The Airflow DAG expects the `pyicloud-ipd` and `pillow` packages. Airflow itself
-should already be installed on the machine executing the DAG.
+The Airflow DAG expects the `pyicloud-ipd`, `pillow`, `opencv-python`, and
+`numpy` packages. Airflow itself should already be installed on the machine
+executing the DAG.
 
 ## iCloud setup
 
@@ -73,7 +74,9 @@ background or image source to the media path containing the downloaded photos.
 
 ## Filtering photos
 
-`icloud_dag.py` contains a placeholder `_is_interesting` function. It currently
-keeps images with a resolution greater than `800x600`. Replace this function
-with your preferred ML model or scoring logic to select only photos suitable for
-display.
+`icloud_dag.py` implements a basic `_is_interesting` helper. Images smaller than
+`800x600` are discarded. If `opencv-python` is installed, the function attempts
+face detection using a bundled Haar cascade and automatically keeps photos with
+faces. For all other images, the script computes their grayscale entropy and
+retains those above a small threshold (≈5.0). You can replace this logic with a
+custom ML model if desired.

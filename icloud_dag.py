@@ -17,19 +17,51 @@ try:
 except ImportError:
     Image = None  # placeholder
 
+try:
+    import cv2  # type: ignore
+    import numpy as np  # type: ignore
+    _FACE_CASCADE = cv2.CascadeClassifier(
+        cv2.data.haarcascades + "haarcascade_frontalface_default.xml"
+    )
+except Exception:  # pragma: no cover - optional dependency
+    cv2 = None  # type: ignore
+    np = None  # type: ignore
+    _FACE_CASCADE = None
+
+
+def _entropy(img: "Image.Image") -> float:
+    """Return the Shannon entropy of a Pillow image."""
+    hist = img.histogram()
+    pixels = sum(hist)
+    if pixels == 0:
+        return 0.0
+    from math import log2
+
+    return -sum((h / pixels) * log2(h / pixels) for h in hist if h)
+
 
 def _is_interesting(image_path: Path) -> bool:
-    """Simple heuristic to keep only reasonably large photos.
-
-    Replace this function with a real model or scoring approach if available.
-    """
+    """Heuristic to skip screenshots or low-quality photos."""
     if Image is None:
         return True
 
     try:
         with Image.open(image_path) as img:
             width, height = img.size
-        return width * height >= 800 * 600
+            if width < 800 or height < 600:
+                return False
+
+            img_rgb = img.convert("RGB")
+
+            if cv2 is not None and np is not None and _FACE_CASCADE is not None:
+                arr = cv2.cvtColor(np.array(img_rgb), cv2.COLOR_RGB2BGR)
+                gray = cv2.cvtColor(arr, cv2.COLOR_BGR2GRAY)
+                faces = _FACE_CASCADE.detectMultiScale(gray, 1.1, 5)
+                if len(faces) > 0:
+                    return True
+
+            entropy = _entropy(img_rgb.convert("L"))
+            return entropy >= 5.0
     except Exception:
         return False
 
