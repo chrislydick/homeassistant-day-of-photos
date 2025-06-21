@@ -17,6 +17,7 @@ The Airflow DAG expects the `pyicloud-ipd`, `pillow`, `opencv-python`, and
 `numpy` packages. Airflow itself should already be installed on the machine
 executing the DAG.
 
+
 ## iCloud setup
 
 1. Enable two-factor authentication on your Apple account.
@@ -32,6 +33,7 @@ your iCloud photos.
    `ICLOUD_2FA_DEVICE` to choose the trusted device index (default `0`). After a
    successful login, the session cookie is saved and future runs will not need
    the code until the cookie expires.
+
 
 ## Airflow usage
 
@@ -68,7 +70,6 @@ To run the DAG manually from the command line:
 airflow dags list          # confirm Airflow sees "icloud_day_photos"
 airflow dags trigger icloud_day_photos
 ```
-
 ## Home Assistant configuration
 
 Ensure the `media_source` integration is enabled. Copy or mount the output
@@ -91,3 +92,5 @@ face detection using a bundled Haar cascade and automatically keeps photos with
 faces. For all other images, the script computes their grayscale entropy and
 retains those above a small threshold (≈5.0). You can replace this logic with a
 custom ML model if desired.
+=======
+
