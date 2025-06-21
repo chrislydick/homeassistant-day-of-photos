@@ -13,8 +13,10 @@ Install dependencies in a Python environment:
 pip install -r requirements.txt
 ```
 
-The Airflow DAG expects the `pyicloud-ipd` and `pillow` packages. Airflow itself
-should already be installed on the machine executing the DAG.
+The Airflow DAG expects the `pyicloud-ipd`, `pillow`, `opencv-python`, and
+`numpy` packages. Airflow itself should already be installed on the machine
+executing the DAG.
+
 
 ## iCloud setup
 
@@ -25,8 +27,13 @@ your iCloud photos.
 3. On the machine running the DAG, set environment variables or Airflow
    connection secrets with your Apple ID username and the app-specific
    password.
-4. The first execution may prompt for the two-factor code. After the session is
-   cached, subsequent runs will use the stored session cookies.
+4. The first run may require a two-factor verification code. When prompted,
+   obtain the code from your trusted device and run the task with the
+   environment variable `ICLOUD_2FA_CODE` set to that code. Optionally set
+   `ICLOUD_2FA_DEVICE` to choose the trusted device index (default `0`). After a
+   successful login, the session cookie is saved and future runs will not need
+   the code until the cookie expires.
+
 
 ## Airflow usage
 
@@ -57,6 +64,12 @@ dag = create_dag(
 Place the file in your Airflow `dags/` folder. Airflow will run the task each
 morning and populate the output directory with photos.
 
+To run the DAG manually from the command line:
+
+```bash
+airflow dags list          # confirm Airflow sees "icloud_day_photos"
+airflow dags trigger icloud_day_photos
+```
 ## Home Assistant configuration
 
 Ensure the `media_source` integration is enabled. Copy or mount the output
@@ -73,7 +86,11 @@ background or image source to the media path containing the downloaded photos.
 
 ## Filtering photos
 
-`icloud_dag.py` contains a placeholder `_is_interesting` function. It currently
-keeps images with a resolution greater than `800x600`. Replace this function
-with your preferred ML model or scoring logic to select only photos suitable for
-display.
+`icloud_dag.py` implements a basic `_is_interesting` helper. Images smaller than
+`800x600` are discarded. If `opencv-python` is installed, the function attempts
+face detection using a bundled Haar cascade and automatically keeps photos with
+faces. For all other images, the script computes their grayscale entropy and
+retains those above a small threshold (≈5.0). You can replace this logic with a
+custom ML model if desired.
+=======
+
