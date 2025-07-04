@@ -81,7 +81,22 @@ def _login(username: str | None, password: str | None) -> "PyiCloudService":
 
         devices = api.trusted_devices
         if not devices:
-            raise RuntimeError("No trusted devices available for 2FA")
+            # Some accounts do not return devices. Allow manual verification
+            # instead of failing immediately.
+            if not api.validate_verification_code(None, code):
+                raise RuntimeError(
+                    "Two-factor code required but no trusted devices found. "
+                    "Generate a code on a trusted device and set ICLOUD_2FA_CODE."
+                )
+            try:
+                api.trust_session()
+            except Exception:
+                pass
+            return api
+
+        if device_index < 0 or device_index >= len(devices):
+            raise RuntimeError("Invalid 2FA device index")
+
 
         device = devices[device_index]
         if not api.send_verification_code(device):
@@ -161,3 +176,4 @@ def create_dag(
 
 
 dag = create_dag("icloud_day_photos")
+

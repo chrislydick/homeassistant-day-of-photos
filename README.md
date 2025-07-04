@@ -17,7 +17,6 @@ The Airflow DAG expects the `pyicloud-ipd`, `pillow`, `opencv-python`, and
 `numpy` packages. Airflow itself should already be installed on the machine
 executing the DAG.
 
-
 ## iCloud setup
 
 1. Enable two-factor authentication on your Apple account.
@@ -70,6 +69,7 @@ To run the DAG manually from the command line:
 airflow dags list          # confirm Airflow sees "icloud_day_photos"
 airflow dags trigger icloud_day_photos
 ```
+
 ## Home Assistant configuration
 
 Ensure the `media_source` integration is enabled. Copy or mount the output
@@ -92,5 +92,26 @@ face detection using a bundled Haar cascade and automatically keeps photos with
 faces. For all other images, the script computes their grayscale entropy and
 retains those above a small threshold (≈5.0). You can replace this logic with a
 custom ML model if desired.
-=======
+
+## Troubleshooting iCloud access
+
+Use the `debug_icloud.py` script to verify your credentials and two-factor
+authentication setup outside of Airflow. Run it from the project directory:
+
+```bash
+python debug_icloud.py --download --years-back 2
+```
+
+The script prompts for your Apple ID username and app-specific password (unless
+`ICLOUD_USERNAME` and `ICLOUD_PASSWORD` environment variables are set). If
+two-factor authentication is required, enter the code when prompted. If you
+have multiple trusted devices and do not provide `ICLOUD_2FA_DEVICE`, the script
+will list the available devices and ask you to choose one. Images are
+downloaded into `./debug_images` by default so you can confirm everything works
+before scheduling the DAG.
+
+If the tool reports that no trusted devices are available, generate a
+verification code manually on your iPhone or Mac (Settings → your name →
+Password & Security → **Get Verification Code**) and pass it via the
+`ICLOUD_2FA_CODE` environment variable.
 
