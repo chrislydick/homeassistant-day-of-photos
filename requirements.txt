@@ -6,3 +6,4 @@ pyicloud-ipd
 pillow
 numpy
 opencv-python
+

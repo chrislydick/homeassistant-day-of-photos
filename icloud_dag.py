@@ -97,6 +97,7 @@ def _login(username: str | None, password: str | None) -> "PyiCloudService":
         if device_index < 0 or device_index >= len(devices):
             raise RuntimeError("Invalid 2FA device index")
 
+
         device = devices[device_index]
         if not api.send_verification_code(device):
             raise RuntimeError("Failed to send verification code")
@@ -175,3 +176,4 @@ def create_dag(
 
 
 dag = create_dag("icloud_day_photos")
+

@@ -33,6 +33,7 @@ your iCloud photos.
    successful login, the session cookie is saved and future runs will not need
    the code until the cookie expires.
 
+
 ## Airflow usage
 
 The file `icloud_dag.py` defines a simple DAG named `icloud_day_photos`. It
@@ -113,3 +114,4 @@ If the tool reports that no trusted devices are available, generate a
 verification code manually on your iPhone or Mac (Settings → your name →
 Password & Security → **Get Verification Code**) and pass it via the
 `ICLOUD_2FA_CODE` environment variable.
+
