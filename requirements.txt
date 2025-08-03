@@ -6,4 +6,7 @@ pyicloud-ipd
 pillow
 numpy
 opencv-python
+O365
+python-dotenv
+requests-oauthlib
 
