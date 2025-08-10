@@ -33,7 +33,7 @@ def fetch_photos_function(**context):
         output_dir="/srv/homeassistant/media/day_photos",
         client_id=client_id,
         client_secret=client_secret,
-        token_file="/tmp/onedrive_token.pickle",
+        token_file="/opt/airflow/dags/onedrive_token.pickle",
         photos_folder="Pictures"
     )
     

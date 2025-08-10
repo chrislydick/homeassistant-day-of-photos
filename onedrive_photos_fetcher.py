@@ -36,7 +36,7 @@ class OneDrivePhotosFetcher:
         self,
         client_id: str,
         client_secret: str,
-        token_file: str = "onedrive_token.pickle",
+        token_file: str = "./onedrive_token.pickle",
         output_dir: str = "./images",
         photos_folder: str = "Pictures"  # OneDrive photos folder name
     ):
@@ -403,7 +403,7 @@ def fetch_onedrive_photos_airflow(
     output_dir: str = "./images",
     client_id: Optional[str] = None,
     client_secret: Optional[str] = None,
-    token_file: str = "onedrive_token.pickle",
+    token_file: str = "./onedrive_token.pickle",
     photos_folder: str = "Pictures"
 ) -> None:
     """

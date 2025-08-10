@@ -110,7 +110,7 @@ def test_onedrive_connection(client_id, client_secret):
         fetcher = OneDrivePhotosFetcher(
             client_id=client_id,
             client_secret=client_secret,
-            token_file="/tmp/onedrive_token.pickle",
+            token_file="./onedrive_token.pickle",
             output_dir="./test_images",
             photos_folder="Pictures"
         )
@@ -177,7 +177,8 @@ def print_deployment_instructions():
     print("   cp onedrive_photos_fetcher.py /path/to/airflow/dags/")
     print("   cp onedrive_photos_dag.py /path/to/airflow/dags/")
     print()
-    print("2. The token file is already in the correct location (/tmp/onedrive_token.pickle)")
+    print("2. Copy the token file to your Airflow dags folder:")
+    print("   cp onedrive_token.pickle /opt/airflow/dags/")
     print("3. Update the DAG configuration if needed:")
     print("   - Edit OUTPUT_DIR in onedrive_photos_dag.py")
     print("   - Update PHOTOS_FOLDER if needed")
