@@ -9,7 +9,8 @@ instructions for syncing photos from iCloud to OneDrive.
 import os
 import sys
 from pathlib import Path
-from onedrive_photos_fetcher_simple import SimpleOneDrivePhotosFetcher
+from datetime import datetime
+from onedrive_photos_fetcher import OneDrivePhotosFetcher
 
 def print_header():
     print("=" * 60)
@@ -106,7 +107,7 @@ def test_onedrive_connection(client_id, client_secret):
                 print("❌ No credentials provided. Set ONEDRIVE_CLIENT_ID and ONEDRIVE_CLIENT_SECRET environment variables or provide them as parameters.")
                 return False
         
-        fetcher = SimpleOneDrivePhotosFetcher(
+        fetcher = OneDrivePhotosFetcher(
             client_id=client_id,
             client_secret=client_secret,
             token_file="test_onedrive_token.pickle",
