@@ -178,7 +178,7 @@ def print_deployment_instructions():
     print("   cp onedrive_photos_dag.py /path/to/airflow/dags/")
     print()
     print("2. Copy the token file to your Airflow dags folder:")
-    print("   cp onedrive_token.pickle /opt/airflow/dags/")
+    print("   cp onedrive_token.pickle /home/chrislydick/airflow/dags/")
     print("3. Update the DAG configuration if needed:")
     print("   - Edit OUTPUT_DIR in onedrive_photos_dag.py")
     print("   - Update PHOTOS_FOLDER if needed")
