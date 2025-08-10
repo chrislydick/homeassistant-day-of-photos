@@ -17,19 +17,12 @@ from pathlib import Path
 from typing import Optional, List, Dict, Any
 import json
 from dotenv import load_dotenv
-
-# Fix HTTPS issue with O365 library
-os.environ["OAUTHLIB_INSECURE_TRANSPORT"] = "1"
+import webbrowser
+import time
+from urllib.parse import urlparse, parse_qs
 
 # Load environment variables
 load_dotenv()
-
-try:
-    from O365 import Account
-    from requests_oauthlib import OAuth2Session
-    ONEDRIVE_AVAILABLE = True
-except ImportError:
-    ONEDRIVE_AVAILABLE = False
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -52,7 +45,8 @@ class OneDrivePhotosFetcher:
         self.token_file = Path(token_file)
         self.output_dir = Path(output_dir)
         self.photos_folder = photos_folder
-        self.account = None
+        self.access_token = None
+        self.refresh_token = None
         
         # Ensure output directory exists
         self.output_dir.mkdir(parents=True, exist_ok=True)
@@ -64,19 +58,19 @@ class OneDrivePhotosFetcher:
                 with open(self.token_file, 'rb') as f:
                     token_data = pickle.load(f)
                 
-                if token_data:
-                    self.account = Account((self.client_id, self.client_secret))
-                    self.account.load_token(token_data)
+                if token_data and 'access_token' in token_data:
+                    self.access_token = token_data['access_token']
+                    self.refresh_token = token_data.get('refresh_token')
                     
                     # Test the token
-                    if self.account.is_authenticated:
+                    if self._test_token():
                         logger.info("Loaded existing valid OneDrive token")
                         return True
                     else:
-                        logger.warning("Token is invalid or expired")
-                        return False
+                        logger.warning("Token is invalid or expired, trying refresh")
+                        return self._refresh_token()
                 else:
-                    logger.warning("Token file is empty")
+                    logger.warning("Token file is empty or invalid")
                     return False
                     
             except Exception as e:
@@ -93,66 +87,131 @@ class OneDrivePhotosFetcher:
         except Exception as e:
             logger.warning(f"Failed to save token: {e}")
     
-    def authenticate(self) -> bool:
-        """Authenticate with OneDrive API."""
-        if not ONEDRIVE_AVAILABLE:
-            logger.error("O365 library is not installed. Install with: pip install O365")
+    def _test_token(self) -> bool:
+        """Test if the current access token is valid."""
+        if not self.access_token:
             return False
+            
+        headers = {
+            'Authorization': f'Bearer {self.access_token}',
+            'Content-Type': 'application/json'
+        }
         
+        try:
+            response = requests.get(
+                'https://graph.microsoft.com/v1.0/me/drive',
+                headers=headers,
+                timeout=10
+            )
+            return response.status_code == 200
+        except Exception as e:
+            logger.warning(f"Token test failed: {e}")
+            return False
+    
+    def _refresh_token(self) -> bool:
+        """Refresh the access token using refresh token."""
+        if not self.refresh_token:
+            return False
+            
+        token_url = "https://login.microsoftonline.com/common/oauth2/v2.0/token"
+        data = {
+            'client_id': self.client_id,
+            'client_secret': self.client_secret,
+            'grant_type': 'refresh_token',
+            'refresh_token': self.refresh_token
+        }
+        
+        try:
+            response = requests.post(token_url, data=data, timeout=10)
+            if response.status_code == 200:
+                token_data = response.json()
+                self.access_token = token_data['access_token']
+                self.refresh_token = token_data.get('refresh_token', self.refresh_token)
+                
+                # Save updated token
+                self._save_token({
+                    'access_token': self.access_token,
+                    'refresh_token': self.refresh_token
+                })
+                
+                logger.info("Successfully refreshed OneDrive token")
+                return True
+            else:
+                logger.error(f"Token refresh failed: {response.status_code}")
+                return False
+        except Exception as e:
+            logger.error(f"Token refresh error: {e}")
+            return False
+    
+    def authenticate(self) -> bool:
+        """Authenticate with OneDrive API using direct OAuth2."""
         # Try to load existing token first
         if self._load_token():
             return True
         
-        # Use simple OAuth approach for more reliable authentication
+        # Start OAuth2 flow
         try:
-            self.account = Account((self.client_id, self.client_secret))
+            # Step 1: Get authorization URL
+            auth_url = (
+                "https://login.microsoftonline.com/common/oauth2/v2.0/authorize?"
+                f"client_id={self.client_id}&"
+                "response_type=code&"
+                "redirect_uri=http://localhost:8080&"
+                "scope=Files.Read.All&"
+                "response_mode=query"
+            )
             
-            # Get authentication URL
-            auth_url = self.account.connection.get_authorization_url(requested_scopes=["Files.Read.All"])
-            print("\n1. Go to this URL in your browser:")
-            print("=" * 80)
-            print(auth_url)
-            print("=" * 80)
+            print("\n🔐 OneDrive Authentication")
+            print("=" * 50)
+            print("1. Opening browser for authentication...")
             print("2. Sign in with your Microsoft account")
             print("3. Grant permissions to the app")
-            print("4. Copy the authorization code from the redirect URL")
+            print("4. Copy the authorization code from the URL")
+            print()
             
-            auth_code = input("\nEnter the authorization code: ").strip()
+            # Open browser
+            try:
+                webbrowser.open(auth_url)
+            except:
+                print(f"Please open this URL in your browser:\n{auth_url}")
+            
+            print("Waiting for authorization code...")
+            auth_code = input("Enter the authorization code from the URL: ").strip()
             
             if not auth_code:
                 logger.error("No authorization code provided")
                 return False
             
-            # Exchange authorization code for access token
-            try:
-                token_result = self.account.connection.request_token(auth_code)
-                if token_result:
-                    logger.info("Successfully authenticated with OneDrive")
-                    
-                    # Save token for future use
-                    token_data = self.account.connection.token_backend.token
-                    self._save_token(token_data)
-                    
-                    return True
-                else:
-                    logger.error("Failed to exchange authorization code for token")
-                    return False
-            except Exception as e:
-                logger.error(f"Token exchange failed: {e}")
-                logger.error("This might be due to an expired authorization code or state mismatch")
-                logger.error("Try getting a fresh authorization code from the URL")
-                return False
-                logger.info("Successfully authenticated with OneDrive")
+            # Step 2: Exchange authorization code for tokens
+            token_url = "https://login.microsoftonline.com/common/oauth2/v2.0/token"
+            data = {
+                'client_id': self.client_id,
+                'client_secret': self.client_secret,
+                'grant_type': 'authorization_code',
+                'code': auth_code,
+                'redirect_uri': 'http://localhost:8080'
+            }
+            
+            response = requests.post(token_url, data=data, timeout=10)
+            
+            if response.status_code == 200:
+                token_data = response.json()
+                self.access_token = token_data['access_token']
+                self.refresh_token = token_data.get('refresh_token')
                 
                 # Save token for future use
-                token_data = self.account.connection.token_backend.token
-                self._save_token(token_data)
+                self._save_token({
+                    'access_token': self.access_token,
+                    'refresh_token': self.refresh_token
+                })
                 
+                logger.info("Successfully authenticated with OneDrive")
                 return True
             else:
-                logger.error("Failed to exchange authorization code for token")
+                logger.error(f"Token exchange failed: {response.status_code}")
+                logger.error(f"Response: {response.text}")
                 return False
-            
+                
         except Exception as e:
             logger.error(f"Authentication failed: {e}")
             return False
@@ -161,7 +220,7 @@ class OneDrivePhotosFetcher:
         """Extract date from photo file using multiple methods."""
         try:
             # Method 1: Try to get date from filename patterns
-            filename = Path(file_item.name).stem.lower()
+            filename = Path(file_item['name']).stem.lower()
             
             # Common filename patterns
             patterns = [
@@ -185,17 +244,17 @@ class OneDrivePhotosFetcher:
                         return datetime(int(year), int(month), int(day))
             
             # Method 2: Use file creation time from OneDrive metadata
-            if hasattr(file_item, 'created') and file_item.created:
-                return file_item.created
+            if 'createdDateTime' in file_item:
+                return datetime.fromisoformat(file_item['createdDateTime'].replace('Z', '+00:00'))
             
             # Method 3: Use file modification time
-            if hasattr(file_item, 'last_modified') and file_item.last_modified:
-                return file_item.last_modified
+            if 'lastModifiedDateTime' in file_item:
+                return datetime.fromisoformat(file_item['lastModifiedDateTime'].replace('Z', '+00:00'))
             
             return None
             
         except Exception as e:
-            logger.warning(f"Could not extract date from {file_item.name}: {e}")
+            logger.warning(f"Could not extract date from {file_item['name']}: {e}")
             return None
     
     def search_photos_for_date(
@@ -204,7 +263,7 @@ class OneDrivePhotosFetcher:
         years_back: int = 5
     ) -> List[Dict[str, Any]]:
         """Search for photos from the same day across multiple years."""
-        if not self.account or not self.account.is_authenticated:
+        if not self.access_token:
             logger.error("Not authenticated")
             return []
         
@@ -214,41 +273,40 @@ class OneDrivePhotosFetcher:
         logger.info(f"Searching for photos on {target_date.date()} going back {years_back} years")
         
         try:
-            # Get OneDrive storage
-            storage = self.account.storage()
-            drive = storage.get_default_drive()
+            headers = {
+                'Authorization': f'Bearer {self.access_token}',
+                'Content-Type': 'application/json'
+            }
             
-            # Get the photos folder
-            photos_folder = drive.get_item_by_path(self.photos_folder)
-            if not photos_folder:
-                logger.warning(f"Photos folder '{self.photos_folder}' not found")
-                return []
+            # Search for photos in the Pictures folder
+            search_url = f"https://graph.microsoft.com/v1.0/me/drive/root:/{self.photos_folder}:/children"
             
-            for year_offset in range(1, years_back + 1):
-                past_year = target_date.year - year_offset
-                search_date = datetime(past_year, month_day[0], month_day[1])
-                
-                logger.info(f"Searching for photos on {search_date.date()}")
-                
-                # List all files in the photos folder
-                items = photos_folder.get_items()
+            response = requests.get(search_url, headers=headers, timeout=30)
+            
+            if response.status_code == 200:
+                items = response.json().get('value', [])
                 
                 for item in items:
-                    if item.is_file:
-                        # Check if it's a photo file
-                        file_extension = Path(item.name).suffix.lower()
+                    if item.get('file'):  # Check if it's a file
+                        file_extension = Path(item['name']).suffix.lower()
                         if file_extension in ['.jpg', '.jpeg', '.png', '.gif', '.bmp', '.tiff', '.heic', '.heif', '.webp', '.raw', '.cr2', '.nef']:
                             photo_date = self._get_photo_date(item)
                             
-                            if photo_date and photo_date.date() == search_date.date():
-                                photos_found.append({
-                                    'item': item,
-                                    'date': search_date.date(),
-                                    'year_offset': year_offset,
-                                    'photo_date': photo_date
-                                })
+                            if photo_date:
+                                # Check if photo is from the same day across multiple years
+                                for year_offset in range(1, years_back + 1):
+                                    past_year = target_date.year - year_offset
+                                    search_date = datetime(past_year, month_day[0], month_day[1])
+                                    
+                                    if photo_date.date() == search_date.date():
+                                        photos_found.append({
+                                            'item': item,
+                                            'date': search_date.date(),
+                                            'year_offset': year_offset,
+                                            'photo_date': photo_date
+                                        })
                 
-                logger.info(f"Found {len([p for p in photos_found if p['date'] == search_date.date()])} photos for {search_date.date()}")
+                logger.info(f"Found {len(photos_found)} photos for {target_date.date()} going back {years_back} years")
                     
         except Exception as e:
             logger.error(f"Error searching photos: {e}")
@@ -269,8 +327,8 @@ class OneDrivePhotosFetcher:
             
             try:
                 # Create filename with date prefix for organization
-                file_extension = Path(item.name).suffix.lower()
-                filename = f"{date}_{item.name}"
+                file_extension = Path(item['name']).suffix.lower()
+                filename = f"{date}_{item['name']}"
                 file_path = self.output_dir / filename
                 
                 # Skip if file already exists
@@ -282,15 +340,27 @@ class OneDrivePhotosFetcher:
                 # Download the photo
                 logger.info(f"Downloading: {filename}")
                 
-                # Download file from OneDrive
+                # Download file from OneDrive using the download URL
+                headers = {
+                    'Authorization': f'Bearer {self.access_token}',
+                }
+                
+                download_url = f"https://graph.microsoft.com/v1.0/me/drive/items/{item['id']}/content"
+                
                 with open(file_path, 'wb') as f:
-                    item.download(f)
+                    response = requests.get(download_url, headers=headers, stream=True, timeout=30)
+                    if response.status_code == 200:
+                        for chunk in response.iter_content(chunk_size=8192):
+                            f.write(chunk)
+                    else:
+                        logger.error(f"Failed to download {item['name']}: {response.status_code}")
+                        continue
                 
                 downloaded_files.append(file_path)
                 logger.info(f"Successfully downloaded: {filename}")
                 
             except Exception as e:
-                logger.error(f"Failed to download {item.name}: {e}")
+                logger.error(f"Failed to download {item['name']}: {e}")
         
         return downloaded_files
     
