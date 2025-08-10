@@ -163,19 +163,23 @@ class OneDrivePhotosFetcher:
             
             print("\n🔐 OneDrive Authentication")
             print("=" * 50)
-            print("1. Opening browser for authentication...")
+            print("1. Go to this URL in your browser:")
+            print("=" * 80)
+            print(auth_url)
+            print("=" * 80)
             print("2. Sign in with your Microsoft account")
             print("3. Grant permissions to the app")
-            print("4. Copy the authorization code from the URL")
+            print("4. Copy the authorization code from the redirect URL")
             print()
             
-            # Open browser
+            # Try to open browser as well
             try:
                 webbrowser.open(auth_url)
+                print("✅ Browser opened automatically")
             except:
-                print(f"Please open this URL in your browser:\n{auth_url}")
+                print("⚠️  Could not open browser automatically")
             
-            print("Waiting for authorization code...")
+            print("\nWaiting for authorization code...")
             auth_code = input("Enter the authorization code from the URL: ").strip()
             
             if not auth_code:
