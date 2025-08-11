@@ -21,15 +21,15 @@ START_DATE = datetime(2024, 1, 1)
 # Home Assistant Server Configuration - These will be loaded from Airflow Variables
 # HOMEASSISTANT_HOST, HOMEASSISTANT_USER, HOMEASSISTANT_PHOTOS_DIR
 
-def transfer_photos_to_homeassistant(local_dir, remote_host, remote_user, remote_dir):
+def transfer_photos_to_homeassistant(local_dir, remote_host, remote_user, remote_dir, ssh_port="22"):
     """Transfer photos from Airflow server to Home Assistant server via SCP"""
     try:
         # Create remote directory if it doesn't exist
-        ssh_cmd = f"ssh {remote_user}@{remote_host} 'mkdir -p {remote_dir}'"
+        ssh_cmd = f"ssh -p {ssh_port} {remote_user}@{remote_host} 'mkdir -p {remote_dir}'"
         subprocess.run(ssh_cmd, shell=True, check=True)
         
         # Transfer files
-        scp_cmd = f"scp -r {local_dir}/* {remote_user}@{remote_host}:{remote_dir}/"
+        scp_cmd = f"scp -P {ssh_port} -r {local_dir}/* {remote_user}@{remote_host}:{remote_dir}/"
         result = subprocess.run(scp_cmd, shell=True, capture_output=True, text=True)
         
         if result.returncode == 0:
@@ -58,6 +58,7 @@ def fetch_photos_function(**context):
     homeassistant_host = Variable.get("HOMEASSISTANT_HOST", default_var=None)
     homeassistant_user = Variable.get("HOMEASSISTANT_USER", default_var=None)
     homeassistant_photos_dir = Variable.get("HOMEASSISTANT_PHOTOS_DIR", default_var=None)
+    homeassistant_ssh_port = Variable.get("HOMEASSISTANT_SSH_PORT", default_var="22")
     
     if not homeassistant_host or not homeassistant_user or not homeassistant_photos_dir:
         raise ValueError("HOMEASSISTANT_HOST, HOMEASSISTANT_USER, and HOMEASSISTANT_PHOTOS_DIR must be set in Airflow Variables")
@@ -82,7 +83,8 @@ def fetch_photos_function(**context):
             local_temp_dir,
             homeassistant_host,
             homeassistant_user,
-            homeassistant_photos_dir
+            homeassistant_photos_dir,
+            homeassistant_ssh_port
         )
         
         if transfer_success:

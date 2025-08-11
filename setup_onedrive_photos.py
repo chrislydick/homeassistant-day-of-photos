@@ -165,6 +165,9 @@ def setup_airflow_variables(client_id, client_secret):
     print("Variable Name: HOMEASSISTANT_PHOTOS_DIR")
     print("Variable Value: [Path on Home Assistant server, e.g., /media/day_photos]")
     print()
+    print("Variable Name: HOMEASSISTANT_SSH_PORT")
+    print("Variable Value: [SSH port, e.g., 22, 2222, 8022]")
+    print()
     
     setup_airflow = input("Would you like to set up OneDrive variables automatically? (y/n): ").strip().lower()
     
