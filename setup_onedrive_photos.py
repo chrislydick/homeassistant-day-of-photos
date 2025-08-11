@@ -148,26 +148,38 @@ def setup_airflow_variables(client_id, client_secret):
     print()
     print("You need to set these variables in Airflow:")
     print()
+    print("OneDrive Variables:")
     print("Variable Name: ONEDRIVE_CLIENT_ID")
     print(f"Variable Value: {client_id}")
     print()
     print("Variable Name: ONEDRIVE_CLIENT_SECRET")
     print(f"Variable Value: {client_secret}")
     print()
+    print("Home Assistant Server Variables:")
+    print("Variable Name: HOMEASSISTANT_HOST")
+    print("Variable Value: [Your Home Assistant server IP/hostname]")
+    print()
+    print("Variable Name: HOMEASSISTANT_USER")
+    print("Variable Value: [Username on Home Assistant server]")
+    print()
+    print("Variable Name: HOMEASSISTANT_PHOTOS_DIR")
+    print("Variable Value: [Path on Home Assistant server, e.g., /media/day_photos]")
+    print()
     
-    setup_airflow = input("Would you like to set up Airflow variables automatically? (y/n): ").strip().lower()
+    setup_airflow = input("Would you like to set up OneDrive variables automatically? (y/n): ").strip().lower()
     
     if setup_airflow == 'y':
         try:
             from airflow.models import Variable
             Variable.set("ONEDRIVE_CLIENT_ID", client_id)
             Variable.set("ONEDRIVE_CLIENT_SECRET", client_secret)
-            print("✅ Airflow variables set successfully!")
+            print("✅ OneDrive variables set successfully!")
+            print("⚠️  Please set Home Assistant variables manually in the Airflow UI")
         except Exception as e:
             print(f"❌ Failed to set Airflow variables: {e}")
             print("Please set them manually in the Airflow UI")
     else:
-        print("Please set the variables manually in the Airflow UI")
+        print("Please set all variables manually in the Airflow UI")
 
 def print_deployment_instructions():
     print("🚀 STEP 5: Deploy to Airflow")
