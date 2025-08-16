@@ -119,7 +119,7 @@ python3 onedrive_photos_script.py \
 | `--homeassistant-host` | Home Assistant server host | From env var |
 | `--homeassistant-user` | Home Assistant server user | From env var |
 | `--homeassistant-photos-dir` | Home Assistant photos directory | From env var |
-| `--homeassistant-ssh-port` | Home Assistant SSH port | `22` |
+| `--homeassistant-ssh-port` | Home Assistant SSH port | From env var HOMEASSISTANT_SSH_PORT (default: 22) |
 | `--skip-transfer` | Skip transferring to Home Assistant | False |
 | `--no-cleanup` | Don't clean up remote folder before transfer | False |
 

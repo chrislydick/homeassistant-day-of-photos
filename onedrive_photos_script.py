@@ -576,7 +576,7 @@ def main():
     parser.add_argument("--homeassistant-host", help="Home Assistant server host (from env var HOMEASSISTANT_HOST)")
     parser.add_argument("--homeassistant-user", help="Home Assistant server user (from env var HOMEASSISTANT_USER)")
     parser.add_argument("--homeassistant-photos-dir", help="Home Assistant photos directory (from env var HOMEASSISTANT_PHOTOS_DIR)")
-    parser.add_argument("--homeassistant-ssh-port", default="22", help="Home Assistant SSH port (from env var HOMEASSISTANT_SSH_PORT)")
+    parser.add_argument("--homeassistant-ssh-port", help="Home Assistant SSH port (from env var HOMEASSISTANT_SSH_PORT)")
     parser.add_argument("--skip-transfer", action="store_true", help="Skip transferring to Home Assistant")
     parser.add_argument("--no-cleanup", action="store_true", help="Don't clean up remote folder before transfer")
     
