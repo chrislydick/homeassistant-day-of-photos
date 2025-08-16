@@ -7,3 +7,6 @@ HOMEASSISTANT_HOST=your_homeassistant_server_ip_or_hostname
 HOMEASSISTANT_USER=your_homeassistant_username
 HOMEASSISTANT_PHOTOS_DIR=/path/to/homeassistant/photos/directory
 HOMEASSISTANT_SSH_PORT=22
+
+# Optional: Override default years to look back (default is 10)
+# ONEDRIVE_YEARS_BACK=15

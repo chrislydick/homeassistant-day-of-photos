@@ -438,7 +438,7 @@ def main():
     """Main function to run the OneDrive photos script."""
     parser = argparse.ArgumentParser(description="Fetch OneDrive photos for a date and transfer to Home Assistant")
     parser.add_argument("--date", help="Target date (YYYY-MM-DD)", default=None)
-    parser.add_argument("--years-back", type=int, default=5, help="Number of years to look back")
+    parser.add_argument("--years-back", type=int, default=10, help="Number of years to look back")
     parser.add_argument("--output-dir", default="/tmp/onedrive_photos_temp", help="Local temporary directory")
     parser.add_argument("--client-id", help="OneDrive app client ID (from env var ONEDRIVE_CLIENT_ID)")
     parser.add_argument("--client-secret", help="OneDrive app client secret (from env var ONEDRIVE_CLIENT_SECRET)")
@@ -465,6 +465,16 @@ def main():
     homeassistant_user = args.homeassistant_user or os.getenv("HOMEASSISTANT_USER")
     homeassistant_photos_dir = args.homeassistant_photos_dir or os.getenv("HOMEASSISTANT_PHOTOS_DIR")
     homeassistant_ssh_port = args.homeassistant_ssh_port or os.getenv("HOMEASSISTANT_SSH_PORT", "22")
+    
+    # Get years_back from environment variable if not provided as argument
+    years_back = args.years_back
+    if years_back == 10:  # If using default, check for env var
+        env_years_back = os.getenv("ONEDRIVE_YEARS_BACK")
+        if env_years_back:
+            try:
+                years_back = int(env_years_back)
+            except ValueError:
+                logger.warning(f"Invalid ONEDRIVE_YEARS_BACK value: {env_years_back}, using default")
     
     if not args.skip_transfer and (not homeassistant_host or not homeassistant_user or not homeassistant_photos_dir):
         logger.error("HOMEASSISTANT_HOST, HOMEASSISTANT_USER, and HOMEASSISTANT_PHOTOS_DIR must be set in environment variables or provided as arguments")
@@ -494,7 +504,7 @@ def main():
         
         downloaded_files = fetcher.fetch_and_download(
             target_date=target_date,
-            years_back=args.years_back,
+            years_back=years_back,
             skip_existing=True
         )
         
