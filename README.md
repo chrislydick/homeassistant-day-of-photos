@@ -1,6 +1,6 @@
 # OneDrive Photo Fetcher for Home Assistant
 
-A reliable solution for fetching "day of photos" from OneDrive for your Home Assistant automation.
+A reliable solution for fetching "day of photos" from OneDrive for your Home Assistant automation. **Now available as a standalone script that runs via crontab!**
 
 ## 🎯 **Why OneDrive?**
 
@@ -8,64 +8,53 @@ A reliable solution for fetching "day of photos" from OneDrive for your Home Ass
 - ✅ **Stable API** - Microsoft Graph API is very reliable
 - ✅ **Easy iCloud Integration** - Sync iCloud photos to OneDrive
 - ✅ **Linux Compatible** - Works perfectly on Linux systems
+- ✅ **Standalone Script** - No Airflow required, runs via crontab
 
-## 📁 **Project Structure**
+## 🚀 **Quick Start (Standalone Version)**
 
-### **Active Files (Root Directory)**
-```
-├── onedrive_photos_fetcher.py    # Main OneDrive fetcher (reliable OAuth)
-├── onedrive_photos_dag.py        # Airflow DAG for OneDrive
-├── setup_onedrive_photos.py      # Setup script for OneDrive
-├── requirements.txt               # Python dependencies
-└── README.md                      # This file
-```
-
-## 🚀 **Server Setup Instructions**
+The project now includes a standalone script that doesn't require Apache Airflow. This is the recommended approach.
 
 ### **1. Install Dependencies**
 ```bash
-pip install -r requirements.txt
+pip install -r requirements_standalone.txt
 ```
 
-### **2. Set Up OneDrive App**
+### **2. Set Up Environment**
 ```bash
-python setup_onedrive_photos.py
+cp env_template.txt .env
+# Edit .env with your OneDrive and Home Assistant credentials
 ```
 
-### **3. Configure Environment**
-Create a `.env` file with your OneDrive credentials:
+### **3. First Run (Authentication)**
 ```bash
-ONEDRIVE_CLIENT_ID=your_client_id_here
-ONEDRIVE_CLIENT_SECRET=your_client_secret_here
+python3 onedrive_photos_script.py
 ```
 
-### **4. Test the Setup**
+### **4. Set Up Crontab**
 ```bash
-python setup_onedrive_photos.py
+./setup_crontab.sh
 ```
 
-## 🎯 **Airflow Integration**
+**📖 For detailed instructions, see [README_STANDALONE.md](README_STANDALONE.md)**
 
-### **Copy DAG to Airflow**
-1. Copy `onedrive_photos_dag.py` to your Airflow `dags/` folder
-2. Copy `onedrive_photos_fetcher.py` to the same directory
-3. Ensure your `.env` file is accessible to Airflow
+## 📁 **Project Structure**
 
-### **Configure Airflow Variables**
-Set these in Airflow UI → Admin → Variables:
-- `ONEDRIVE_CLIENT_ID`: Your OneDrive app client ID
-- `ONEDRIVE_CLIENT_SECRET`: Your OneDrive app client secret
+### **Active Files (Standalone Version)**
+```
+├── onedrive_photos_script.py      # Main standalone script
+├── setup_crontab.sh               # Crontab setup helper
+├── requirements_standalone.txt    # Python dependencies
+├── env_template.txt               # Environment template
+├── README_STANDALONE.md           # Detailed standalone documentation
+└── README.md                      # This file
+```
 
-### **DAG Configuration**
-The DAG runs daily at 4:00 AM and:
-- Fetches photos from this day in history
-- Downloads them to your specified directory
-- Integrates with Home Assistant for display
-
-### **Test the DAG**
-```bash
-airflow dags list          # confirm Airflow sees "onedrive_day_photos"
-airflow dags trigger onedrive_day_photos
+### **Archived Files**
+```
+└── archive/
+    └── airflow_code/              # Old Airflow implementation
+        ├── onedrive_photos_dag.py
+        └── onedrive_photos_fetcher.py
 ```
 
 ## 🔧 **Features**
@@ -73,8 +62,9 @@ airflow dags trigger onedrive_day_photos
 - **Reliable OAuth**: Uses direct OAuth2 flow, bypassing problematic libraries
 - **Token Management**: Automatically saves and reuses authentication tokens
 - **Date-based Search**: Finds photos from specific dates across multiple years
-- **Airflow Integration**: Ready-to-use DAG for automated execution
-- **Environment Variables**: Secure credential management
+- **Crontab Ready**: Designed to run automatically via cron jobs
+- **Home Assistant Integration**: Automatically transfers photos to Home Assistant server
+- **Comprehensive Logging**: Detailed logs for debugging and monitoring
 
 ## 🔄 **iCloud → OneDrive Sync**
 
@@ -97,7 +87,7 @@ Since you're on Linux, sync your iCloud photos to OneDrive:
 - Python 3.9+
 - OneDrive account
 - Azure app registration
-- Apache Airflow (for automation)
+- SSH access to Home Assistant server
 
 ## 🔒 **Security**
 
@@ -108,5 +98,22 @@ Since you're on Linux, sync your iCloud photos to OneDrive:
 
 ## 📚 **Documentation**
 
+- **[README_STANDALONE.md](README_STANDALONE.md)** - Complete standalone setup and usage guide
 - `archive/README.md` - Information about archived implementations
 - `archive/old_implementations/` - Previous implementations for reference
+
+## 🔄 **Migration from Airflow**
+
+If you were using the Airflow version:
+
+1. **Old files moved**: Airflow files are now in `archive/airflow_code/`
+2. **New approach**: Use the standalone script with crontab
+3. **Environment**: Use `.env` instead of Airflow variables
+4. **Scheduling**: Use `./setup_crontab.sh` instead of Airflow DAGs
+
+## 🆘 **Need Help?**
+
+1. Check the standalone documentation: [README_STANDALONE.md](README_STANDALONE.md)
+2. View logs: `tail -f onedrive_photos.log`
+3. Test manually: `python3 onedrive_photos_script.py --skip-transfer`
+4. Check environment variables are set correctly
