@@ -45,7 +45,7 @@ class OneDrivePhotosDebugger:
         client_id: str,
         client_secret: str,
         token_file: str = "./onedrive_token.pickle",
-        photos_folder: str = "Pictures"
+        photos_folder: str = "My files/Pictures/Camera Roll"
     ):
         self.client_id = client_id
         self.client_secret = client_secret
@@ -239,6 +239,7 @@ class OneDrivePhotosDebugger:
                 r"(\d{4})(\d{2})(\d{2})",    # YYYYMMDD
                 r"(\d{2})-(\d{2})-(\d{4})",  # MM-DD-YYYY
                 r"(\d{2})_(\d{2})_(\d{4})",  # MM_DD_YYYY
+                r"^(\d{4})(\d{2})(\d{2})_",  # YYYYMMDD_ (at start of filename)
             ]
             
             import re
@@ -302,14 +303,129 @@ class OneDrivePhotosDebugger:
                     logger.info(f"  {item_type}: {item['name']}")
                     
                     # If it's the Pictures folder, explore it
-                    if item.get('folder') and item['name'].lower() in ['pictures', 'photos', 'camera roll']:
+                    if item.get('folder') and item['name'].lower() in ['pictures', 'photos', 'camera roll', 'my files']:
                         logger.info(f"🔍 Exploring folder: {item['name']}")
                         self._explore_folder(item['id'], item['name'], headers, depth=1)
+                        
+                # Also test the recursive search function
+                logger.info("🔍 Testing recursive photo search...")
+                self._test_recursive_search(headers)
             else:
                 logger.error(f"❌ Failed to get root items: {response.status_code}")
                 
         except Exception as e:
             logger.error(f"❌ Error debugging OneDrive structure: {e}")
+    
+    def _test_recursive_search(self, headers: dict):
+        """Test the recursive search function."""
+        try:
+            # Test with today's date
+            today = datetime.now()
+            logger.info(f"🧪 Testing recursive search for {today.date()}")
+            
+            # Find the Pictures folder first
+            search_url = f"https://graph.microsoft.com/v1.0/me/drive/root:/{self.photos_folder}:/children"
+            response = requests.get(search_url, headers=headers, timeout=30)
+            
+            if response.status_code == 200:
+                # Use the same recursive search logic as the main script
+                photos_found = self._search_folder_recursively_debug(
+                    folder_id=None,
+                    folder_path=self.photos_folder,
+                    target_date=today,
+                    years_back=5,
+                    headers=headers,
+                    depth=0
+                )
+                
+                logger.info(f"🧪 Recursive search found {len(photos_found)} photos for {today.date()}")
+                
+                if photos_found:
+                    logger.info("📸 Found photos:")
+                    for photo in photos_found:
+                        logger.info(f"  - {photo['item']['name']} ({photo['photo_date'].date()}) in {photo['folder_path']}")
+                else:
+                    logger.warning("⚠️ No photos found with recursive search")
+            else:
+                logger.error(f"❌ Failed to access Pictures folder: {response.status_code}")
+                
+        except Exception as e:
+            logger.error(f"❌ Error in recursive search test: {e}")
+    
+    def _search_folder_recursively_debug(
+        self,
+        folder_id: Optional[str],
+        folder_path: str,
+        target_date: datetime,
+        years_back: int,
+        headers: dict,
+        depth: int = 0,
+        max_depth: int = 10
+    ) -> List[Dict[str, Any]]:
+        """Debug version of recursive search."""
+        photos_found = []
+        month_day = (target_date.month, target_date.day)
+        
+        if depth > max_depth:
+            logger.warning(f"⚠️ Reached maximum search depth ({max_depth}) for {folder_path}")
+            return photos_found
+        
+        try:
+            # Construct the URL based on whether we have a folder ID or path
+            if folder_id:
+                search_url = f"https://graph.microsoft.com/v1.0/me/drive/items/{folder_id}/children"
+            else:
+                search_url = f"https://graph.microsoft.com/v1.0/me/drive/root:/{folder_path}:/children"
+            
+            response = requests.get(search_url, headers=headers, timeout=30)
+            
+            if response.status_code == 200:
+                items = response.json().get('value', [])
+                logger.info(f"{'  ' * depth}📁 Searching {folder_path}: {len(items)} items")
+                
+                for item in items:
+                    if item.get('folder'):
+                        # Recursively search subfolders
+                        subfolder_path = f"{folder_path}/{item['name']}"
+                        sub_photos = self._search_folder_recursively_debug(
+                            folder_id=item['id'],
+                            folder_path=subfolder_path,
+                            target_date=target_date,
+                            years_back=years_back,
+                            headers=headers,
+                            depth=depth + 1,
+                            max_depth=max_depth
+                        )
+                        photos_found.extend(sub_photos)
+                        
+                    elif item.get('file'):
+                        # Check if it's a photo file
+                        file_extension = Path(item['name']).suffix.lower()
+                        if file_extension in ['.jpg', '.jpeg', '.png', '.gif', '.bmp', '.tiff', '.heic', '.heif', '.webp', '.raw', '.cr2', '.nef']:
+                            photo_date = self._get_photo_date(item)
+                            
+                            if photo_date:
+                                # Check if photo is from the same day across multiple years
+                                for year_offset in range(1, years_back + 1):
+                                    past_year = target_date.year - year_offset
+                                    search_date = datetime(past_year, month_day[0], month_day[1])
+                                    
+                                    if photo_date.date() == search_date.date():
+                                        logger.info(f"{'  ' * depth}📸 Found matching photo: {item['name']} ({photo_date.date()})")
+                                        photos_found.append({
+                                            'item': item,
+                                            'date': search_date.date(),
+                                            'year_offset': year_offset,
+                                            'photo_date': photo_date,
+                                            'folder_path': folder_path
+                                        })
+            else:
+                logger.error(f"❌ Failed to access folder {folder_path}: {response.status_code}")
+                
+        except Exception as e:
+            logger.error(f"❌ Error searching folder {folder_path}: {e}")
+        
+        return photos_found
     
     def _explore_folder(self, folder_id: str, folder_name: str, headers: dict, depth: int = 0):
         """Recursively explore a folder to find photos."""

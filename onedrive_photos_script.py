@@ -52,7 +52,7 @@ class OneDrivePhotosFetcher:
         client_secret: str,
         token_file: str = "./onedrive_token.pickle",
         output_dir: str = "./images",
-        photos_folder: str = "Pictures"  # OneDrive photos folder name
+        photos_folder: str = "My files/Pictures/Camera Roll"  # OneDrive photos folder name
     ):
         self.client_id = client_id
         self.client_secret = client_secret
@@ -247,6 +247,7 @@ class OneDrivePhotosFetcher:
                 r"(\d{4})(\d{2})(\d{2})",    # YYYYMMDD
                 r"(\d{2})-(\d{2})-(\d{4})",  # MM-DD-YYYY
                 r"(\d{2})_(\d{2})_(\d{4})",  # MM_DD_YYYY
+                r"^(\d{4})(\d{2})(\d{2})_",  # YYYYMMDD_ (at start of filename)
             ]
             
             import re
@@ -296,16 +297,79 @@ class OneDrivePhotosFetcher:
                 'Content-Type': 'application/json'
             }
             
-            # Search for photos in the Pictures folder
+            # First, find the Pictures folder
             search_url = f"https://graph.microsoft.com/v1.0/me/drive/root:/{self.photos_folder}:/children"
             
             response = requests.get(search_url, headers=headers, timeout=30)
             
             if response.status_code == 200:
+                # Recursively search through the Pictures folder and all subfolders
+                photos_found = self._search_folder_recursively(
+                    folder_id=None,  # Will be determined from the Pictures folder
+                    folder_path=self.photos_folder,
+                    target_date=target_date,
+                    years_back=years_back,
+                    headers=headers,
+                    depth=0
+                )
+                
+                logger.info(f"Found {len(photos_found)} photos for {target_date.date()} going back {years_back} years")
+            else:
+                logger.error(f"Failed to access Pictures folder: {response.status_code}")
+                    
+        except Exception as e:
+            logger.error(f"Error searching photos: {e}")
+        
+        return photos_found
+    
+    def _search_folder_recursively(
+        self,
+        folder_id: Optional[str],
+        folder_path: str,
+        target_date: datetime,
+        years_back: int,
+        headers: dict,
+        depth: int = 0,
+        max_depth: int = 10  # Prevent infinite recursion
+    ) -> List[Dict[str, Any]]:
+        """Recursively search through folders for photos."""
+        photos_found = []
+        month_day = (target_date.month, target_date.day)
+        
+        if depth > max_depth:
+            logger.warning(f"Reached maximum search depth ({max_depth}) for {folder_path}")
+            return photos_found
+        
+        try:
+            # Construct the URL based on whether we have a folder ID or path
+            if folder_id:
+                search_url = f"https://graph.microsoft.com/v1.0/me/drive/items/{folder_id}/children"
+            else:
+                search_url = f"https://graph.microsoft.com/v1.0/me/drive/root:/{folder_path}:/children"
+            
+            response = requests.get(search_url, headers=headers, timeout=30)
+            
+            if response.status_code == 200:
                 items = response.json().get('value', [])
+                logger.info(f"{'  ' * depth}📁 Searching {folder_path}: {len(items)} items")
                 
                 for item in items:
-                    if item.get('file'):  # Check if it's a file
+                    if item.get('folder'):
+                        # Recursively search subfolders
+                        subfolder_path = f"{folder_path}/{item['name']}"
+                        sub_photos = self._search_folder_recursively(
+                            folder_id=item['id'],
+                            folder_path=subfolder_path,
+                            target_date=target_date,
+                            years_back=years_back,
+                            headers=headers,
+                            depth=depth + 1,
+                            max_depth=max_depth
+                        )
+                        photos_found.extend(sub_photos)
+                        
+                    elif item.get('file'):
+                        # Check if it's a photo file
                         file_extension = Path(item['name']).suffix.lower()
                         if file_extension in ['.jpg', '.jpeg', '.png', '.gif', '.bmp', '.tiff', '.heic', '.heif', '.webp', '.raw', '.cr2', '.nef']:
                             photo_date = self._get_photo_date(item)
@@ -317,17 +381,19 @@ class OneDrivePhotosFetcher:
                                     search_date = datetime(past_year, month_day[0], month_day[1])
                                     
                                     if photo_date.date() == search_date.date():
+                                        logger.info(f"{'  ' * depth}📸 Found matching photo: {item['name']} ({photo_date.date()})")
                                         photos_found.append({
                                             'item': item,
                                             'date': search_date.date(),
                                             'year_offset': year_offset,
-                                            'photo_date': photo_date
+                                            'photo_date': photo_date,
+                                            'folder_path': folder_path
                                         })
+            else:
+                logger.error(f"Failed to access folder {folder_path}: {response.status_code}")
                 
-                logger.info(f"Found {len(photos_found)} photos for {target_date.date()} going back {years_back} years")
-                    
         except Exception as e:
-            logger.error(f"Error searching photos: {e}")
+            logger.error(f"Error searching folder {folder_path}: {e}")
         
         return photos_found
     
