@@ -27,6 +27,8 @@ from dotenv import load_dotenv
 import webbrowser
 import time
 from urllib.parse import urlparse, parse_qs
+from PIL import Image
+import io
 
 # Load environment variables
 load_dotenv()
@@ -440,8 +442,21 @@ class OneDrivePhotosFetcher:
                         logger.error(f"Failed to download {item['name']}: {response.status_code}")
                         continue
                 
-                downloaded_files.append(file_path)
-                logger.info(f"Successfully downloaded: {filename}")
+                # Convert HEIC to JPG if needed
+                if file_extension == '.heic':
+                    logger.info(f"Converting HEIC to JPG: {filename}")
+                    jpg_path = convert_heic_to_jpg(file_path)
+                    if jpg_path:
+                        # Remove the original HEIC file
+                        file_path.unlink()
+                        downloaded_files.append(jpg_path)
+                        logger.info(f"✅ Successfully converted and saved: {jpg_path.name}")
+                    else:
+                        logger.warning(f"⚠️ Failed to convert HEIC, keeping original: {filename}")
+                        downloaded_files.append(file_path)
+                else:
+                    downloaded_files.append(file_path)
+                    logger.info(f"Successfully downloaded: {filename}")
                 
             except Exception as e:
                 logger.error(f"Failed to download {item['name']}: {e}")
@@ -477,9 +492,57 @@ class OneDrivePhotosFetcher:
         return downloaded_files
 
 
-def transfer_photos_to_homeassistant(local_dir, remote_host, remote_user, remote_dir, ssh_port="22"):
+def convert_heic_to_jpg(heic_path: Path) -> Optional[Path]:
+    """Convert HEIC file to JPG format."""
+    try:
+        # Open HEIC image
+        with Image.open(heic_path) as img:
+            # Convert to RGB (JPG doesn't support alpha channel)
+            if img.mode in ('RGBA', 'LA', 'P'):
+                img = img.convert('RGB')
+            
+            # Create JPG filename
+            jpg_path = heic_path.with_suffix('.jpg')
+            
+            # Save as JPG with high quality
+            img.save(jpg_path, 'JPEG', quality=95, optimize=True)
+            
+            logger.info(f"✅ Converted {heic_path.name} to {jpg_path.name}")
+            return jpg_path
+            
+    except Exception as e:
+        logger.error(f"❌ Failed to convert {heic_path.name}: {e}")
+        return None
+
+
+def cleanup_remote_folder(remote_host, remote_user, remote_dir, ssh_port="22"):
+    """Remove all files in the remote media folder before transferring new ones."""
+    try:
+        # Remove all files in the remote directory
+        cleanup_cmd = f"ssh -p {ssh_port} {remote_user}@{remote_host} 'rm -rf {remote_dir}/*'"
+        result = subprocess.run(cleanup_cmd, shell=True, capture_output=True, text=True)
+        
+        if result.returncode == 0:
+            logger.info(f"✅ Cleaned up remote folder {remote_dir}")
+            return True
+        else:
+            logger.warning(f"⚠️ Cleanup command returned non-zero: {result.stderr}")
+            # Don't fail the entire process if cleanup fails
+            return True
+            
+    except Exception as e:
+        logger.warning(f"⚠️ Error during cleanup: {e}")
+        # Don't fail the entire process if cleanup fails
+        return True
+
+
+def transfer_photos_to_homeassistant(local_dir, remote_host, remote_user, remote_dir, ssh_port="22", cleanup=True):
     """Transfer photos from local server to Home Assistant server via SCP"""
     try:
+        # Clean up the remote folder if requested
+        if cleanup:
+            cleanup_remote_folder(remote_host, remote_user, remote_dir, ssh_port)
+        
         # Create remote directory if it doesn't exist
         ssh_cmd = f"ssh -p {ssh_port} {remote_user}@{remote_host} 'mkdir -p {remote_dir}'"
         subprocess.run(ssh_cmd, shell=True, check=True)
@@ -515,6 +578,7 @@ def main():
     parser.add_argument("--homeassistant-photos-dir", help="Home Assistant photos directory (from env var HOMEASSISTANT_PHOTOS_DIR)")
     parser.add_argument("--homeassistant-ssh-port", default="22", help="Home Assistant SSH port (from env var HOMEASSISTANT_SSH_PORT)")
     parser.add_argument("--skip-transfer", action="store_true", help="Skip transferring to Home Assistant")
+    parser.add_argument("--no-cleanup", action="store_true", help="Don't clean up remote folder before transfer")
     
     args = parser.parse_args()
     
@@ -581,7 +645,8 @@ def main():
                 homeassistant_host,
                 homeassistant_user,
                 homeassistant_photos_dir,
-                homeassistant_ssh_port
+                homeassistant_ssh_port,
+                cleanup=not args.no_cleanup
             )
             
             if transfer_success:

@@ -8,6 +8,8 @@ This is a standalone Python script that fetches photos from OneDrive for a speci
 - 📅 **Date-based Search**: Find photos from the same day across multiple years
 - 🖼️ **Multiple Formats**: Supports JPG, PNG, GIF, HEIC, RAW, and more
 - 📤 **Home Assistant Transfer**: Automatically transfers photos to Home Assistant server via SCP
+- 🧹 **Automatic Cleanup**: Removes old files from remote folder before transferring new ones
+- 🖼️ **HEIC to JPG Conversion**: Automatically converts HEIC files to JPG for Home Assistant compatibility
 - 📝 **Comprehensive Logging**: Detailed logs for debugging and monitoring
 - ⚡ **Crontab Ready**: Designed to run automatically via cron jobs
 
@@ -87,6 +89,9 @@ python3 onedrive_photos_script.py --date 2024-12-25
 
 # Look back 10 years instead of 5
 python3 onedrive_photos_script.py --years-back 10
+
+# Don't clean up remote folder (accumulate photos)
+python3 onedrive_photos_script.py --no-cleanup
 ```
 
 ### Advanced Options
@@ -116,6 +121,7 @@ python3 onedrive_photos_script.py \
 | `--homeassistant-photos-dir` | Home Assistant photos directory | From env var |
 | `--homeassistant-ssh-port` | Home Assistant SSH port | `22` |
 | `--skip-transfer` | Skip transferring to Home Assistant | False |
+| `--no-cleanup` | Don't clean up remote folder before transfer | False |
 
 ## Environment Variables
 
