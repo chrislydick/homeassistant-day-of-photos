@@ -544,6 +544,7 @@ class OneDrivePhotosFetcher:
         self, 
         target_date: Optional[datetime] = None,
         years_back: int = 5,
+        day_range: int = 0,
         skip_existing: bool = True
     ) -> List[Path]:
         """Main method to fetch and download photos for a date."""
@@ -735,6 +736,7 @@ def main():
         downloaded_files = fetcher.fetch_and_download(
             target_date=target_date,
             years_back=years_back,
+            day_range=day_range,
             skip_existing=True
         )
         
