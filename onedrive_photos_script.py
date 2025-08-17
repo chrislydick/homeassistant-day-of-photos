@@ -281,7 +281,8 @@ class OneDrivePhotosFetcher:
     def search_photos_for_date(
         self, 
         target_date: datetime, 
-        years_back: int = 5
+        years_back: int = 5,
+        day_range: int = 0
     ) -> List[Dict[str, Any]]:
         """Search for photos from the same day across multiple years."""
         if not self.access_token:
@@ -555,7 +556,7 @@ class OneDrivePhotosFetcher:
         logger.info(f"Fetching photos for {target_date.date()} going back {years_back} years")
         
         # Search for photos
-        photos_data = self.search_photos_for_date(target_date, years_back)
+        photos_data = self.search_photos_for_date(target_date, years_back, day_range)
         
         if not photos_data:
             logger.info("No photos found")

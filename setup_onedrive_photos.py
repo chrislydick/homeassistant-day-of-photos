@@ -123,7 +123,8 @@ def test_onedrive_connection(client_id, client_secret):
             print("Testing photo search...")
             photos_data = fetcher.search_photos_for_date(
                 target_date=datetime.now(),
-                years_back=1
+                years_back=1,
+                day_range=0
             )
             
             print(f"✅ Found {len(photos_data)} photos in OneDrive")
