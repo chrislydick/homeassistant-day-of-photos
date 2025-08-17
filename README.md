@@ -27,7 +27,7 @@ cp env_template.txt .env
 
 ### **3. First Run (Authentication)**
 ```bash
-python3 onedrive_photos_script.py
+python3 onedrive_photos_script_enhanced.py
 ```
 
 ### **4. Set Up Crontab**
@@ -41,8 +41,7 @@ python3 onedrive_photos_script.py
 
 ### **Active Files (Standalone Version)**
 ```
-├── onedrive_photos_script.py      # Main standalone script
-├── onedrive_photos_script_enhanced.py  # Enhanced version with better token management
+├── onedrive_photos_script_enhanced.py  # Main standalone script (enhanced version)
 ├── setup_crontab.sh               # Crontab setup helper
 ├── requirements_standalone.txt    # Python dependencies
 ├── env_template.txt               # Environment template

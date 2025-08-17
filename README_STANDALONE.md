@@ -61,7 +61,7 @@ HOMEASSISTANT_SSH_PORT=22
 Run the script manually for the first time to authenticate:
 
 ```bash
-python3 onedrive_photos_script.py
+python3 onedrive_photos_script_enhanced.py
 ```
 
 This will open a browser for OAuth authentication. The token will be saved for future runs.
@@ -78,7 +78,7 @@ Or manually add to crontab:
 
 ```bash
 # Run daily at 4:00 AM
-0 4 * * * cd /path/to/script && python3 onedrive_photos_script.py >> cron.log 2>&1
+0 4 * * * cd /path/to/script && python3 onedrive_photos_script_enhanced.py >> cron.log 2>&1
 ```
 
 ## Usage
@@ -87,25 +87,25 @@ Or manually add to crontab:
 
 ```bash
 # Run for today's date
-python3 onedrive_photos_script.py
+python3 onedrive_photos_script_enhanced.py
 
 # Run for a specific date
-python3 onedrive_photos_script.py --date 2024-12-25
+python3 onedrive_photos_script_enhanced.py --date 2024-12-25
 
 # Look back 10 years instead of 5
-python3 onedrive_photos_script.py --years-back 10
+python3 onedrive_photos_script_enhanced.py --years-back 10
 
 # Include ±2 days for more variety
-python3 onedrive_photos_script.py --day-range 2
+python3 onedrive_photos_script_enhanced.py --day-range 2
 
 # Don't clean up remote folder (accumulate photos)
-python3 onedrive_photos_script.py --no-cleanup
+python3 onedrive_photos_script_enhanced.py --no-cleanup
 ```
 
 ### Advanced Options
 
 ```bash
-python3 onedrive_photos_script.py \
+python3 onedrive_photos_script_enhanced.py \
   --date 2024-12-25 \
   --years-back 10 \
   --output-dir /tmp/my_photos \
@@ -153,8 +153,7 @@ The script reads configuration from environment variables (can be set in `.env` 
 
 ```
 homeassistant-day-of-photos/
-├── onedrive_photos_script.py              # Main script
-├── onedrive_photos_script_enhanced.py     # Enhanced version with better token management
+├── onedrive_photos_script_enhanced.py     # Main script (enhanced version)
 ├── setup_crontab.sh                      # Crontab setup helper
 ├── requirements_standalone.txt            # Python dependencies
 ├── env_template.txt                      # Environment template
@@ -171,6 +170,7 @@ homeassistant-day-of-photos/
 │   ├── test_alternative_scopes.py       # Scope combination testing
 │   └── debug_onedrive_photos.py         # Photo discovery debugging
 └── archive/
+    ├── onedrive_photos_script.py        # Original script (archived)
     └── airflow_code/                    # Old Airflow files
         ├── onedrive_photos_dag.py
         └── onedrive_photos_fetcher.py
@@ -214,7 +214,7 @@ tail -f cron.log
 ssh user@homeassistant-host
 
 # Check script permissions
-ls -la onedrive_photos_script.py
+ls -la onedrive_photos_script_enhanced.py
 
 # View current crontab
 crontab -l
@@ -223,7 +223,7 @@ crontab -l
 crontab -e
 
 # Test script manually
-python3 onedrive_photos_script.py --skip-transfer
+python3 onedrive_photos_script_enhanced.py --skip-transfer
 ```
 
 ## Migration from Airflow
@@ -247,6 +247,6 @@ If you're migrating from the Airflow version:
 For issues or questions:
 
 1. Check the logs: `tail -f onedrive_photos.log`
-2. Test manually: `python3 onedrive_photos_script.py --skip-transfer`
+2. Test manually: `python3 onedrive_photos_script_enhanced.py --skip-transfer`
 3. Verify environment variables are set correctly
 4. Ensure OneDrive app permissions are configured properly

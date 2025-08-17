@@ -4,7 +4,7 @@
 # This script helps you set up a daily cron job to run the OneDrive photos script
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-SCRIPT_PATH="$SCRIPT_DIR/onedrive_photos_script.py"
+SCRIPT_PATH="$SCRIPT_DIR/onedrive_photos_script_enhanced.py"
 
 echo "🔧 OneDrive Photos Crontab Setup"
 echo "=================================="
