@@ -95,6 +95,9 @@ python3 onedrive_photos_script.py --date 2024-12-25
 # Look back 10 years instead of 5
 python3 onedrive_photos_script.py --years-back 10
 
+# Include ±2 days for more variety
+python3 onedrive_photos_script.py --day-range 2
+
 # Don't clean up remote folder (accumulate photos)
 python3 onedrive_photos_script.py --no-cleanup
 ```
@@ -115,7 +118,8 @@ python3 onedrive_photos_script.py \
 | Argument | Description | Default |
 |----------|-------------|---------|
 | `--date` | Target date (YYYY-MM-DD) | Today |
-| `--years-back` | Number of years to look back | 5 |
+| `--years-back` | Number of years to look back | 10 |
+| `--day-range` | Number of days before/after target date to include | 1 |
 | `--output-dir` | Local temporary directory | `/tmp/onedrive_photos_temp` |
 | `--client-id` | OneDrive app client ID | From env var |
 | `--client-secret` | OneDrive app client secret | From env var |
@@ -140,6 +144,8 @@ The script reads configuration from environment variables (can be set in `.env` 
 | `HOMEASSISTANT_USER` | Home Assistant server username | Yes* |
 | `HOMEASSISTANT_PHOTOS_DIR` | Home Assistant photos directory | Yes* |
 | `HOMEASSISTANT_SSH_PORT` | Home Assistant SSH port | No (default: 22) |
+| `ONEDRIVE_YEARS_BACK` | Override default years to look back | No (default: 10) |
+| `ONEDRIVE_DAY_RANGE` | Override default day range | No (default: 1) |
 
 *Required unless using `--skip-transfer`
 

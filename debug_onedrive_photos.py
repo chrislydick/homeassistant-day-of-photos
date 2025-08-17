@@ -317,40 +317,117 @@ class OneDrivePhotosDebugger:
             logger.error(f"❌ Error debugging OneDrive structure: {e}")
     
     def _test_recursive_search(self, headers: dict):
-        """Test the recursive search function."""
+        """Test the optimized search function."""
         try:
             # Test with today's date
             today = datetime.now()
-            logger.info(f"🧪 Testing recursive search for {today.date()}")
+            logger.info(f"🧪 Testing optimized search for {today.date()}")
             
-            # Find the Pictures folder first
-            search_url = f"https://graph.microsoft.com/v1.0/me/drive/root:/{self.photos_folder}:/children"
+            # Use the same optimized search logic as the main script
+            photos_found = self._search_optimized_by_month_debug(
+                target_date=today,
+                years_back=5,
+                headers=headers,
+                day_range=1  # Test with ±1 day
+            )
+            
+            logger.info(f"🧪 Optimized search found {len(photos_found)} photos for {today.date()}")
+            
+            if photos_found:
+                logger.info("📸 Found photos:")
+                for photo in photos_found:
+                    logger.info(f"  - {photo['item']['name']} ({photo['photo_date'].date()}) in {photo['folder_path']}")
+            else:
+                logger.warning("⚠️ No photos found with optimized search")
+                
+        except Exception as e:
+            logger.error(f"❌ Error in optimized search test: {e}")
+    
+    def _search_optimized_by_month_debug(
+        self,
+        target_date: datetime,
+        years_back: int,
+        headers: dict,
+        day_range: int = 0
+    ) -> List[Dict[str, Any]]:
+        """Debug version of optimized search."""
+        photos_found = []
+        
+        # Generate list of dates to search (target date ± day_range)
+        dates_to_search = []
+        for day_offset in range(-day_range, day_range + 1):
+            search_date = target_date + timedelta(days=day_offset)
+            dates_to_search.append(search_date)
+        
+        logger.info(f"🔍 Optimized search: looking for {len(dates_to_search)} dates (±{day_range} days)")
+        
+        # Search for each date across all years
+        for search_date in dates_to_search:
+            month_day = (search_date.month, search_date.day)
+            month_str = f"{month_day[0]:02d}"
+            
+            logger.info(f"🔍 Searching for date {search_date.date()} (month {month_str})")
+            
+            # Search for each year back
+            for year_offset in range(1, years_back + 1):
+                past_year = target_date.year - year_offset
+                historical_date = datetime(past_year, month_day[0], month_day[1])
+                
+                logger.info(f"  🔍 Year {past_year}, month {month_str}")
+                
+                # Try to access the specific year/month folder directly
+                year_month_path = f"{self.photos_folder}/{past_year}/{month_str}"
+                photos_in_year = self._search_specific_month_folder_debug(
+                    year_month_path=year_month_path,
+                    search_date=historical_date,
+                    headers=headers
+                )
+                
+                photos_found.extend(photos_in_year)
+        
+        return photos_found
+    
+    def _search_specific_month_folder_debug(
+        self,
+        year_month_path: str,
+        search_date: datetime,
+        headers: dict
+    ) -> List[Dict[str, Any]]:
+        """Debug version of specific month folder search."""
+        photos_found = []
+        
+        try:
+            # Try to access the specific year/month folder
+            search_url = f"https://graph.microsoft.com/v1.0/me/drive/root:/{year_month_path}:/children"
             response = requests.get(search_url, headers=headers, timeout=30)
             
             if response.status_code == 200:
-                # Use the same recursive search logic as the main script
-                photos_found = self._search_folder_recursively_debug(
-                    folder_id=None,
-                    folder_path=self.photos_folder,
-                    target_date=today,
-                    years_back=5,
-                    headers=headers,
-                    depth=0
-                )
+                items = response.json().get('value', [])
+                logger.info(f"  📁 Found {len(items)} items in {year_month_path}")
                 
-                logger.info(f"🧪 Recursive search found {len(photos_found)} photos for {today.date()}")
-                
-                if photos_found:
-                    logger.info("📸 Found photos:")
-                    for photo in photos_found:
-                        logger.info(f"  - {photo['item']['name']} ({photo['photo_date'].date()}) in {photo['folder_path']}")
-                else:
-                    logger.warning("⚠️ No photos found with recursive search")
+                for item in items:
+                    if item.get('file'):
+                        # Check if it's a photo file
+                        file_extension = Path(item['name']).suffix.lower()
+                        if file_extension in ['.jpg', '.jpeg', '.png', '.gif', '.bmp', '.tiff', '.heic', '.heif', '.webp', '.raw', '.cr2', '.nef']:
+                            photo_date = self._get_photo_date(item)
+                            
+                            if photo_date and photo_date.date() == search_date.date():
+                                logger.info(f"  📸 Found matching photo: {item['name']} ({photo_date.date()})")
+                                photos_found.append({
+                                    'item': item,
+                                    'date': search_date.date(),
+                                    'year_offset': search_date.year,
+                                    'photo_date': photo_date,
+                                    'folder_path': year_month_path
+                                })
             else:
-                logger.error(f"❌ Failed to access Pictures folder: {response.status_code}")
+                logger.info(f"  ⚠️ Month folder not found: {year_month_path} (status: {response.status_code})")
                 
         except Exception as e:
-            logger.error(f"❌ Error in recursive search test: {e}")
+            logger.error(f"  ❌ Error searching {year_month_path}: {e}")
+        
+        return photos_found
     
     def _search_folder_recursively_debug(
         self,

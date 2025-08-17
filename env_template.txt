@@ -10,3 +10,6 @@ HOMEASSISTANT_SSH_PORT=22
 
 # Optional: Override default years to look back (default is 10)
 # ONEDRIVE_YEARS_BACK=15
+
+# Optional: Override default day range (default is 1 = ±1 day)
+# ONEDRIVE_DAY_RANGE=2

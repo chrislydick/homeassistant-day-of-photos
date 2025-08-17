@@ -299,28 +299,104 @@ class OneDrivePhotosFetcher:
                 'Content-Type': 'application/json'
             }
             
-            # First, find the Pictures folder
-            search_url = f"https://graph.microsoft.com/v1.0/me/drive/root:/{self.photos_folder}:/children"
-            
-            response = requests.get(search_url, headers=headers, timeout=30)
-            
-            if response.status_code == 200:
-                # Recursively search through the Pictures folder and all subfolders
-                photos_found = self._search_folder_recursively(
-                    folder_id=None,  # Will be determined from the Pictures folder
-                    folder_path=self.photos_folder,
-                    target_date=target_date,
-                    years_back=years_back,
-                    headers=headers,
-                    depth=0
-                )
+            # Optimized search: only look in relevant month folders for each year
+            photos_found = self._search_optimized_by_month(
+                target_date=target_date,
+                years_back=years_back,
+                headers=headers,
+                day_range=day_range
+            )
                 
-                logger.info(f"Found {len(photos_found)} photos for {target_date.date()} going back {years_back} years")
-            else:
-                logger.error(f"Failed to access Pictures folder: {response.status_code}")
+            logger.info(f"Found {len(photos_found)} photos for {target_date.date()} going back {years_back} years")
                     
         except Exception as e:
             logger.error(f"Error searching photos: {e}")
+        
+        return photos_found
+    
+    def _search_optimized_by_month(
+        self,
+        target_date: datetime,
+        years_back: int,
+        headers: dict,
+        day_range: int = 0
+    ) -> List[Dict[str, Any]]:
+        """Optimized search that only looks in relevant month folders."""
+        photos_found = []
+        
+        # Generate list of dates to search (target date ± day_range)
+        dates_to_search = []
+        for day_offset in range(-day_range, day_range + 1):
+            search_date = target_date + timedelta(days=day_offset)
+            dates_to_search.append(search_date)
+        
+        logger.info(f"🔍 Optimized search: looking for {len(dates_to_search)} dates (±{day_range} days)")
+        
+        # Search for each date across all years
+        for search_date in dates_to_search:
+            month_day = (search_date.month, search_date.day)
+            month_str = f"{month_day[0]:02d}"
+            
+            logger.info(f"🔍 Searching for date {search_date.date()} (month {month_str})")
+            
+            # Search for each year back
+            for year_offset in range(1, years_back + 1):
+                past_year = target_date.year - year_offset
+                historical_date = datetime(past_year, month_day[0], month_day[1])
+                
+                logger.info(f"  🔍 Year {past_year}, month {month_str}")
+                
+                # Try to access the specific year/month folder directly
+                year_month_path = f"{self.photos_folder}/{past_year}/{month_str}"
+                photos_in_year = self._search_specific_month_folder(
+                    year_month_path=year_month_path,
+                    search_date=historical_date,
+                    headers=headers
+                )
+                
+                photos_found.extend(photos_in_year)
+        
+        return photos_found
+    
+    def _search_specific_month_folder(
+        self,
+        year_month_path: str,
+        search_date: datetime,
+        headers: dict
+    ) -> List[Dict[str, Any]]:
+        """Search a specific year/month folder for photos."""
+        photos_found = []
+        
+        try:
+            # Try to access the specific year/month folder
+            search_url = f"https://graph.microsoft.com/v1.0/me/drive/root:/{year_month_path}:/children"
+            response = requests.get(search_url, headers=headers, timeout=30)
+            
+            if response.status_code == 200:
+                items = response.json().get('value', [])
+                logger.info(f"  📁 Found {len(items)} items in {year_month_path}")
+                
+                for item in items:
+                    if item.get('file'):
+                        # Check if it's a photo file
+                        file_extension = Path(item['name']).suffix.lower()
+                        if file_extension in ['.jpg', '.jpeg', '.png', '.gif', '.bmp', '.tiff', '.heic', '.heif', '.webp', '.raw', '.cr2', '.nef']:
+                            photo_date = self._get_photo_date(item)
+                            
+                            if photo_date and photo_date.date() == search_date.date():
+                                logger.info(f"  📸 Found matching photo: {item['name']} ({photo_date.date()})")
+                                photos_found.append({
+                                    'item': item,
+                                    'date': search_date.date(),
+                                    'year_offset': search_date.year,
+                                    'photo_date': photo_date,
+                                    'folder_path': year_month_path
+                                })
+            else:
+                logger.info(f"  ⚠️ Month folder not found: {year_month_path} (status: {response.status_code})")
+                
+        except Exception as e:
+            logger.error(f"  ❌ Error searching {year_month_path}: {e}")
         
         return photos_found
     
@@ -580,6 +656,7 @@ def main():
     parser = argparse.ArgumentParser(description="Fetch OneDrive photos for a date and transfer to Home Assistant")
     parser.add_argument("--date", help="Target date (YYYY-MM-DD)", default=None)
     parser.add_argument("--years-back", type=int, default=10, help="Number of years to look back")
+    parser.add_argument("--day-range", type=int, default=1, help="Number of days before/after target date to include (e.g., 1 = ±1 day)")
     parser.add_argument("--output-dir", default="/tmp/onedrive_photos_temp", help="Local temporary directory")
     parser.add_argument("--client-id", help="OneDrive app client ID (from env var ONEDRIVE_CLIENT_ID)")
     parser.add_argument("--client-secret", help="OneDrive app client secret (from env var ONEDRIVE_CLIENT_SECRET)")
@@ -617,6 +694,16 @@ def main():
                 years_back = int(env_years_back)
             except ValueError:
                 logger.warning(f"Invalid ONEDRIVE_YEARS_BACK value: {env_years_back}, using default")
+    
+    # Get day_range from environment variable if not provided as argument
+    day_range = args.day_range
+    if day_range == 1:  # If using default, check for env var
+        env_day_range = os.getenv("ONEDRIVE_DAY_RANGE")
+        if env_day_range:
+            try:
+                day_range = int(env_day_range)
+            except ValueError:
+                logger.warning(f"Invalid ONEDRIVE_DAY_RANGE value: {env_day_range}, using default")
     
     if not args.skip_transfer and (not homeassistant_host or not homeassistant_user or not homeassistant_photos_dir):
         logger.error("HOMEASSISTANT_HOST, HOMEASSISTANT_USER, and HOMEASSISTANT_PHOTOS_DIR must be set in environment variables or provided as arguments")
