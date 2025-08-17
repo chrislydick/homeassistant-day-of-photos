@@ -143,11 +143,11 @@ def test_onedrive_connection(client_id, client_secret):
         print(f"❌ Error: {e}")
         return False
 
-def setup_airflow_variables(client_id, client_secret):
-    print("⚙️ STEP 4: Airflow Variables Setup")
+def setup_environment_variables(client_id, client_secret):
+    print("⚙️ STEP 4: Environment Variables Setup")
     print("-" * 40)
     print()
-    print("You need to set these variables in Airflow:")
+    print("You need to set these variables in your .env file:")
     print()
     print("OneDrive Variables:")
     print("Variable Name: ONEDRIVE_CLIENT_ID")
@@ -170,37 +170,52 @@ def setup_airflow_variables(client_id, client_secret):
     print("Variable Value: [SSH port, e.g., 22, 2222, 8022]")
     print()
     
-    setup_airflow = input("Would you like to set up OneDrive variables automatically? (y/n): ").strip().lower()
+    setup_env = input("Would you like to create the .env file automatically? (y/n): ").strip().lower()
     
-    if setup_airflow == 'y':
+    if setup_env == 'y':
         try:
-            from airflow.models import Variable
-            Variable.set("ONEDRIVE_CLIENT_ID", client_id)
-            Variable.set("ONEDRIVE_CLIENT_SECRET", client_secret)
-            print("✅ OneDrive variables set successfully!")
-            print("⚠️  Please set Home Assistant variables manually in the Airflow UI")
+            # Create .env file
+            env_content = f"""# OneDrive Configuration
+ONEDRIVE_CLIENT_ID={client_id}
+ONEDRIVE_CLIENT_SECRET={client_secret}
+
+# Home Assistant Configuration
+HOMEASSISTANT_HOST=your_homeassistant_host_here
+HOMEASSISTANT_USER=your_homeassistant_user_here
+HOMEASSISTANT_PHOTOS_DIR=/media/day_photos
+HOMEASSISTANT_SSH_PORT=22
+
+# Optional Configuration
+# ONEDRIVE_YEARS_BACK=10
+# ONEDRIVE_DAY_RANGE=1
+"""
+            with open('.env', 'w') as f:
+                f.write(env_content)
+            print("✅ .env file created successfully!")
+            print("⚠️  Please edit the .env file to set your Home Assistant configuration")
         except Exception as e:
-            print(f"❌ Failed to set Airflow variables: {e}")
-            print("Please set them manually in the Airflow UI")
+            print(f"❌ Failed to create .env file: {e}")
+            print("Please create the .env file manually")
     else:
-        print("Please set all variables manually in the Airflow UI")
+        print("Please create the .env file manually using env_template.txt as a guide")
 
 def print_deployment_instructions():
-    print("🚀 STEP 5: Deploy to Airflow")
+    print("🚀 STEP 5: Deploy Standalone Script")
     print("-" * 40)
     print()
-    print("1. Copy the OneDrive files to your Airflow dags folder:")
-    print("   cp onedrive_photos_fetcher.py /path/to/airflow/dags/")
-    print("   cp onedrive_photos_dag.py /path/to/airflow/dags/")
+    print("1. Install dependencies:")
+    print("   pip install -r requirements_standalone.txt")
     print()
-    print("2. Copy the token file to your Airflow dags folder:")
-    print("   cp onedrive_token.pickle /home/chrislydick/airflow/dags/")
-    print("3. Update the DAG configuration if needed:")
-    print("   - Edit OUTPUT_DIR in onedrive_photos_dag.py")
-    print("   - Update PHOTOS_FOLDER if needed")
+    print("2. Test the script:")
+    print("   python3 onedrive_photos_script_enhanced.py --skip-transfer")
     print()
-    print("3. Restart Airflow services")
-    print("4. The DAG will run daily at 4:00 AM")
+    print("3. Set up cron job:")
+    print("   ./setup_crontab.sh")
+    print()
+    print("4. The script will run daily at 4:00 AM")
+    print()
+    print("Alternative: Run manually anytime:")
+    print("   python3 onedrive_photos_script_enhanced.py")
     print()
 
 def main():
@@ -216,8 +231,8 @@ def main():
     if test_onedrive_connection(client_id, client_secret):
         print("✅ OneDrive setup successful!")
         
-        # Step 4: Airflow variables
-        setup_airflow_variables(client_id, client_secret)
+        # Step 4: Environment variables
+        setup_environment_variables(client_id, client_secret)
         
         # Step 5: Deployment instructions
         print_deployment_instructions()
