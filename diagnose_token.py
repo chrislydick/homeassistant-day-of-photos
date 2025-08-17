@@ -55,10 +55,10 @@ def analyze_token(token_data):
         access_token = token_data['access_token']
         print(f"✅ Access token present: {len(access_token)} characters")
         
-        # Decode JWT token to check expiration
+        # Try to decode JWT token to check expiration
         try:
             import jwt
-            # Note: This might fail if the token is not a standard JWT
+            # Note: Microsoft tokens might not be standard JWT format
             decoded = jwt.decode(access_token, options={"verify_signature": False})
             if 'exp' in decoded:
                 exp_timestamp = decoded['exp']
@@ -76,16 +76,23 @@ def analyze_token(token_data):
                     print("⚠️ Token expires soon (less than 1 hour)")
                 else:
                     print("✅ Token is valid")
+            else:
+                print("⚠️ Token decoded but no expiration found")
                     
         except ImportError:
             print("⚠️ JWT library not available, cannot decode token")
         except Exception as e:
-            print(f"⚠️ Could not decode token: {e}")
+            print(f"⚠️ Could not decode token (this is normal for Microsoft tokens): {e}")
+            print("💡 Microsoft Graph API tokens often use non-standard JWT format")
+            print("💡 The token validity test below will show if it's actually working")
     
     # Check for refresh token
     if 'refresh_token' in token_data:
         refresh_token = token_data['refresh_token']
-        print(f"✅ Refresh token present: {len(refresh_token)} characters")
+        if refresh_token is not None:
+            print(f"✅ Refresh token present: {len(refresh_token)} characters")
+        else:
+            print("⚠️ Refresh token is None")
     else:
         print("❌ No refresh token found")
 
