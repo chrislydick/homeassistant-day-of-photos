@@ -35,7 +35,7 @@ def debug_token_exchange():
         f"client_id={client_id}&"
         "response_type=code&"
         "redirect_uri=http://localhost:8080&"
-        "scope=Files.Read.All offline_access&"
+        "scope=Files.Read.All%20offline_access&"
         "response_mode=query"
     )
     

@@ -38,12 +38,16 @@ def test_scope_combinations():
         print("=" * 50)
         
         # Get authorization URL
+        # URL encode the scope parameter
+        import urllib.parse
+        encoded_scope = urllib.parse.quote(scope)
+        
         auth_url = (
             "https://login.microsoftonline.com/common/oauth2/v2.0/authorize?"
             f"client_id={client_id}&"
             "response_type=code&"
             "redirect_uri=http://localhost:8080&"
-            f"scope={scope}&"
+            f"scope={encoded_scope}&"
             "response_mode=query"
         )
         
