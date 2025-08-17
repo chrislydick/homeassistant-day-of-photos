@@ -663,7 +663,7 @@ def main():
     parser.add_argument("--client-id", help="OneDrive app client ID (from env var ONEDRIVE_CLIENT_ID)")
     parser.add_argument("--client-secret", help="OneDrive app client secret (from env var ONEDRIVE_CLIENT_SECRET)")
     parser.add_argument("--token-file", default="./onedrive_token.pickle", help="Path to token file")
-    parser.add_argument("--photos-folder", default="Pictures", help="OneDrive photos folder name")
+    parser.add_argument("--photos-folder", default="My files/Pictures/Camera Roll", help="OneDrive photos folder name")
     parser.add_argument("--homeassistant-host", help="Home Assistant server host (from env var HOMEASSISTANT_HOST)")
     parser.add_argument("--homeassistant-user", help="Home Assistant server user (from env var HOMEASSISTANT_USER)")
     parser.add_argument("--homeassistant-photos-dir", help="Home Assistant photos directory (from env var HOMEASSISTANT_PHOTOS_DIR)")
