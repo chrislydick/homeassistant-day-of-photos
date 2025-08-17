@@ -42,10 +42,12 @@ python3 onedrive_photos_script.py
 ### **Active Files (Standalone Version)**
 ```
 ├── onedrive_photos_script.py      # Main standalone script
+├── onedrive_photos_script_enhanced.py  # Enhanced version with better token management
 ├── setup_crontab.sh               # Crontab setup helper
 ├── requirements_standalone.txt    # Python dependencies
 ├── env_template.txt               # Environment template
 ├── README_STANDALONE.md           # Detailed standalone documentation
+├── debug/                         # Debug and diagnostic scripts
 └── README.md                      # This file
 ```
 

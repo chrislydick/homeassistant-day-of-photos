@@ -153,16 +153,25 @@ The script reads configuration from environment variables (can be set in `.env` 
 
 ```
 homeassistant-day-of-photos/
-├── onedrive_photos_script.py      # Main script
-├── setup_crontab.sh               # Crontab setup helper
-├── requirements_standalone.txt    # Python dependencies
-├── env_template.txt               # Environment template
-├── .env                          # Your environment variables (create this)
-├── onedrive_token.pickle         # OAuth token (created automatically)
-├── onedrive_photos.log           # Script logs
-├── cron.log                      # Crontab execution logs
+├── onedrive_photos_script.py              # Main script
+├── onedrive_photos_script_enhanced.py     # Enhanced version with better token management
+├── setup_crontab.sh                      # Crontab setup helper
+├── requirements_standalone.txt            # Python dependencies
+├── env_template.txt                      # Environment template
+├── .env                                 # Your environment variables (create this)
+├── onedrive_token.pickle                # OAuth token (created automatically)
+├── debug/                               # Debug and diagnostic scripts
+│   ├── README.md                        # Debug scripts documentation
+│   ├── diagnose_token.py                # Basic token analysis
+│   ├── token_debug.py                   # Comprehensive token debugging
+│   ├── debug_token_exchange.py          # OAuth flow debugging
+│   ├── test_oauth_flow.py               # OAuth flow testing
+│   ├── check_azure_config.py            # Azure configuration check
+│   ├── check_account_permissions.py     # Account permissions test
+│   ├── test_alternative_scopes.py       # Scope combination testing
+│   └── debug_onedrive_photos.py         # Photo discovery debugging
 └── archive/
-    └── airflow_code/             # Old Airflow files
+    └── airflow_code/                    # Old Airflow files
         ├── onedrive_photos_dag.py
         └── onedrive_photos_fetcher.py
 ```
