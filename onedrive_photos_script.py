@@ -452,7 +452,7 @@ class OneDrivePhotosFetcher:
                         downloaded_files.append(jpg_path)
                         logger.info(f"✅ Successfully converted and saved: {jpg_path.name}")
                     else:
-                        logger.warning(f"⚠️ Failed to convert HEIC, keeping original: {filename}")
+                        logger.warning(f"⚠️ HEIC conversion failed or not supported, keeping original: {filename}")
                         downloaded_files.append(file_path)
                 else:
                     downloaded_files.append(file_path)
@@ -495,6 +495,17 @@ class OneDrivePhotosFetcher:
 def convert_heic_to_jpg(heic_path: Path) -> Optional[Path]:
     """Convert HEIC file to JPG format."""
     try:
+        # Check if HEIC support is available
+        try:
+            # Try to import HEIF support
+            import pillow_heif
+            pillow_heif.register_heif_opener()
+            logger.info("✅ HEIC support available via pillow-heif")
+        except ImportError:
+            logger.warning("⚠️ HEIC support not available. Install with: pip install pillow-heif")
+            logger.warning("⚠️ Skipping HEIC conversion, keeping original file")
+            return None
+        
         # Open HEIC image
         with Image.open(heic_path) as img:
             # Convert to RGB (JPG doesn't support alpha channel)
@@ -512,6 +523,7 @@ def convert_heic_to_jpg(heic_path: Path) -> Optional[Path]:
             
     except Exception as e:
         logger.error(f"❌ Failed to convert {heic_path.name}: {e}")
+        logger.error(f"   Error details: {type(e).__name__}: {str(e)}")
         return None
 
 

@@ -21,6 +21,11 @@ This is a standalone Python script that fetches photos from OneDrive for a speci
 pip install -r requirements_standalone.txt
 ```
 
+**Note**: For HEIC to JPG conversion, the script requires `pillow-heif`. If you encounter HEIC conversion issues, install it separately:
+```bash
+pip install pillow-heif
+```
+
 ### 2. Set Up Environment Variables
 
 Copy the template and fill in your credentials:
