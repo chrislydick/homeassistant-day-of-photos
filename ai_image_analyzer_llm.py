@@ -33,10 +33,64 @@ class LLMImageAnalyzer:
         self.llm_client = None
         self.vision_model = None
         
+        # Load configuration
+        self.config = self._load_config()
+        
         # Initialize LLM and vision model
         self._initialize_models()
         
         logger.info("🚀 LLM Image Analyzer initialized with local models")
+    
+    def _load_config(self) -> dict:
+        """Load configuration from JSON file."""
+        config_path = Path("llm_config.json")
+        default_config = {
+            "prompts": {
+                "vision_analysis": "Analyze this image and determine if it would be suitable for display on a digital photo frame in a home. Consider the following criteria:\n\n1. Personal photos (family, friends, pets)\n2. Beautiful scenery or landscapes\n3. Interesting architecture or cityscapes\n4. Avoid: QR codes, documents, screenshots, construction sites, industrial settings, inappropriate content\n\nRespond with either 'GOOD:' or 'BAD:' followed by your reasoning. Be concise but thorough in your analysis.",
+                "fallback_analysis": "Is this image suitable for a home photo frame? Consider if it shows personal moments, beautiful scenery, or interesting content that would be appropriate for family viewing."
+            },
+            "evaluation": {
+                "negative_indicators": [
+                    "inappropriate", "not suitable", "qr code", "barcode", "document", 
+                    "paper", "screenshot", "text-heavy", "construction site", "industrial"
+                ],
+                "positive_indicators": [
+                    "personal", "family", "scenic", "beautiful", "landscape", 
+                    "people", "pets", "animals", "nature", "architectural", "cityscape"
+                ],
+                "scoring": {
+                    "good_score": 0.8,
+                    "bad_score": 0.2,
+                    "neutral_score": 0.5
+                }
+            },
+            "llm_settings": {
+                "model": "llava:7b",
+                "temperature": 0.7,
+                "max_tokens": 200,
+                "timeout": 60
+            },
+            "logging": {
+                "show_llm_responses": True,
+                "show_evaluation_details": False
+            }
+        }
+        
+        try:
+            if config_path.exists():
+                with open(config_path, 'r') as f:
+                    config = json.load(f)
+                    logger.info("✅ Loaded LLM configuration from llm_config.json")
+                    return config
+            else:
+                # Create default config file
+                with open(config_path, 'w') as f:
+                    json.dump(default_config, f, indent=2)
+                    logger.info("📝 Created default LLM configuration file: llm_config.json")
+                    return default_config
+        except Exception as e:
+            logger.warning(f"⚠️ Failed to load config: {e}, using defaults")
+            return default_config
     
     def _initialize_models(self):
         """Initialize the LLM and vision models."""
@@ -186,8 +240,10 @@ class LLMImageAnalyzer:
         
         url = "http://localhost:11434/api/generate"
         
-        # Get model from environment or use default (vision-capable model)
-        model = os.getenv("LLM_MODEL", "llava:7b")
+        # Get model from config or environment
+        model = self.config.get("llm_settings", {}).get("model", os.getenv("LLM_MODEL", "llava:7b"))
+        timeout = self.config.get("llm_settings", {}).get("timeout", 60)
+        temperature = self.config.get("llm_settings", {}).get("temperature", 0.7)
         
         data = {
             "model": model,
@@ -196,7 +252,7 @@ class LLMImageAnalyzer:
             "options": {
                 "num_gpu": 1,  # Use GPU
                 "num_thread": 8,  # Optimize thread count
-                "temperature": 0.7,
+                "temperature": temperature,
                 "top_p": 0.9,
                 "top_k": 40
             }
@@ -206,7 +262,7 @@ class LLMImageAnalyzer:
             data["images"] = [image_base64]
         
         try:
-            response = requests.post(url, json=data, timeout=60)  # Increased timeout for GPU processing
+            response = requests.post(url, json=data, timeout=timeout)  # Use config timeout
             if response.status_code == 200:
                 return response.json().get("response", "")
             else:
@@ -215,7 +271,7 @@ class LLMImageAnalyzer:
             logger.warning("⚠️ Ollama request timed out, trying with CPU fallback")
             # Fallback to CPU mode
             data["options"]["num_gpu"] = 0
-            response = requests.post(url, json=data, timeout=120)
+            response = requests.post(url, json=data, timeout=timeout * 2)  # Double timeout for CPU
             if response.status_code == 200:
                 return response.json().get("response", "")
             else:
@@ -267,18 +323,41 @@ class LLMImageAnalyzer:
             # Determine if it's good based on LLM response
             llm_response_lower = llm_response.lower()
             
-            if "good" in llm_response_lower or "suitable" in llm_response_lower:
-                is_good = True
-                score = 0.8
-                category = "good_photo"
-            elif "bad" in llm_response_lower or "not suitable" in llm_response_lower:
+            # Get indicators from configuration
+            negative_indicators = self.config.get("evaluation", {}).get("negative_indicators", [])
+            positive_indicators = self.config.get("evaluation", {}).get("positive_indicators", [])
+            scoring = self.config.get("evaluation", {}).get("scoring", {})
+            
+            # First check for negative indicators (these override positive ones)
+            has_negative = any(indicator in llm_response_lower for indicator in negative_indicators)
+            
+            # Check for explicit GOOD/BAD indicators in LLM response
+            if llm_response_lower.startswith("bad:") or "bad:" in llm_response_lower:
                 is_good = False
-                score = 0.2
+                score = scoring.get("bad_score", 0.2)
+                category = "unsuitable_content"
+            elif llm_response_lower.startswith("good:") and not has_negative:
+                # Only consider "good:" if there are no negative indicators
+                is_good = True
+                score = scoring.get("good_score", 0.8)
+                category = "good_photo"
+            elif has_negative:
+                # Negative indicators found, mark as bad regardless of other text
+                is_good = False
+                score = scoring.get("bad_score", 0.2)
+                category = "unsuitable_content"
+            elif "suitable" in llm_response_lower and "not suitable" not in llm_response_lower:
+                is_good = True
+                score = scoring.get("good_score", 0.8)
+                category = "good_photo"
+            elif "not suitable" in llm_response_lower:
+                is_good = False
+                score = scoring.get("bad_score", 0.2)
                 category = "unsuitable_content"
             else:
                 # Neutral response, use technical analysis
                 is_good = self._technical_quality_check(description)
-                score = 0.5 if is_good else 0.3
+                score = scoring.get("neutral_score", 0.5) if is_good else scoring.get("bad_score", 0.2)
                 category = "neutral_quality"
             
             return is_good, score, category
@@ -324,16 +403,10 @@ class LLMImageAnalyzer:
                 image.save(buffer, format='JPEG')
                 image_base64 = base64.b64encode(buffer.getvalue()).decode()
             
-            # Create prompt for LLM
-            prompt = f"""Analyze this image and determine if it would be good to display on a photo frame in a home.
-
-Consider:
-- Is it a personal photo (people, pets, family moments)?
-- Is it scenic or beautiful (landscapes, nature, architecture)?
-- Does it contain inappropriate content (documents, QR codes, screenshots, text)?
-- Is it technically good quality (not too dark, blurry, or overexposed)?
-
-Respond with either "GOOD: [reason]" or "BAD: [reason]" and provide a brief explanation."""
+            # Create prompt for LLM using configuration
+            base_prompt = self.config.get("prompts", {}).get("vision_analysis", 
+                "Analyze this image and determine if it would be good to display on a photo frame in a home.")
+            prompt = f"{base_prompt}\n\nImage description: {description}"
 
             # Query LLM
             llm_response = self._query_llm(prompt, image_base64)
@@ -386,12 +459,12 @@ Respond with either "GOOD: [reason]" or "BAD: [reason]" and provide a brief expl
             if result.get('is_good', False):
                 good_images.append(result)
                 logger.info(f"✅ GOOD image: {image_path.name} (score: {result.get('quality_score', 0):.2f})")
-                if 'llm_response' in result:
+                if 'llm_response' in result and self.config.get("logging", {}).get("show_llm_responses", True):
                     logger.info(f"   💬 LLM: {result['llm_response'][:100]}...")
             else:
                 bad_images.append(result)
                 logger.info(f"❌ BAD image: {image_path.name} (score: {result.get('quality_score', 0):.2f})")
-                if 'llm_response' in result:
+                if 'llm_response' in result and self.config.get("logging", {}).get("show_llm_responses", True):
                     logger.info(f"   💬 LLM: {result['llm_response'][:100]}...")
         
         logger.info(f"🎯 Analysis complete: {len(good_images)} good, {len(bad_images)} bad images")

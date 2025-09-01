@@ -1,0 +1,53 @@
+{
+  "prompts": {
+    "vision_analysis": "Analyze this image and determine if it would be suitable for display on a digital photo frame in a home. Consider the following criteria:\n\n1. Personal photos (family, friends, pets)\n2. Beautiful scenery or landscapes\n3. Interesting architecture or cityscapes\n4. Avoid: QR codes, documents, screenshots, construction sites, industrial settings, inappropriate content\n\nRespond with either 'GOOD:' or 'BAD:' followed by your reasoning. Be concise but thorough in your analysis.",
+    "fallback_analysis": "Is this image suitable for a home photo frame? Consider if it shows personal moments, beautiful scenery, or interesting content that would be appropriate for family viewing."
+  },
+  "evaluation": {
+    "negative_indicators": [
+      "inappropriate",
+      "not suitable",
+      "qr code",
+      "barcode",
+      "document",
+      "paper",
+      "screenshot",
+      "text-heavy",
+      "construction site",
+      "industrial",
+      "unflattering",
+      "candid",
+      "low-resolution",
+      "unfiltered"
+    ],
+    "positive_indicators": [
+      "personal",
+      "family",
+      "scenic",
+      "beautiful",
+      "landscape",
+      "people",
+      "pets",
+      "animals",
+      "nature",
+      "architectural",
+      "cityscape",
+      "landmark"
+    ],
+    "scoring": {
+      "good_score": 0.8,
+      "bad_score": 0.2,
+      "neutral_score": 0.5
+    }
+  },
+  "llm_settings": {
+    "model": "llava:7b",
+    "temperature": 0.7,
+    "max_tokens": 200,
+    "timeout": 60
+  },
+  "logging": {
+    "show_llm_responses": true,
+    "show_evaluation_details": false
+  }
+}

@@ -531,8 +531,59 @@ class EnhancedOneDrivePhotosFetcher:
         return downloaded_files
 
 
+def check_image_metadata(image_path: Path) -> dict:
+    """Check for metadata in an image file."""
+    try:
+        with Image.open(image_path) as img:
+            exif_data = img.info.get('exif')
+            if exif_data:
+                # Try to extract GPS data from EXIF
+                try:
+                    from PIL.ExifTags import TAGS, GPSTAGS
+                    import io
+                    
+                    # Parse EXIF data
+                    exif_dict = {}
+                    for tag_id in exif_data:
+                        tag = TAGS.get(tag_id, tag_id)
+                        data = exif_data.get(tag_id)
+                        exif_dict[tag] = data
+                    
+                    # Check for GPS data
+                    gps_data = exif_dict.get('GPSInfo', {})
+                    if gps_data:
+                        return {
+                            'has_exif': True,
+                            'has_gps': True,
+                            'gps_data': gps_data
+                        }
+                    else:
+                        return {
+                            'has_exif': True,
+                            'has_gps': False,
+                            'exif_data': exif_dict
+                        }
+                except Exception as e:
+                    return {
+                        'has_exif': True,
+                        'has_gps': False,
+                        'error': str(e)
+                    }
+            else:
+                return {
+                    'has_exif': False,
+                    'has_gps': False
+                }
+    except Exception as e:
+        return {
+            'has_exif': False,
+            'has_gps': False,
+            'error': str(e)
+        }
+
+
 def convert_heic_to_jpg(heic_path: Path) -> Optional[Path]:
-    """Convert HEIC file to JPG format."""
+    """Convert HEIC file to JPG format while preserving metadata."""
     try:
         # Check if HEIC support is available
         try:
@@ -546,6 +597,9 @@ def convert_heic_to_jpg(heic_path: Path) -> Optional[Path]:
         
         # Open HEIC image
         with Image.open(heic_path) as img:
+            # Preserve EXIF data
+            exif_data = img.info.get('exif')
+            
             # Convert to RGB (JPG doesn't support alpha channel)
             if img.mode in ('RGBA', 'LA', 'P'):
                 img = img.convert('RGB')
@@ -553,10 +607,31 @@ def convert_heic_to_jpg(heic_path: Path) -> Optional[Path]:
             # Create JPG filename
             jpg_path = heic_path.with_suffix('.jpg')
             
-            # Save as JPG with high quality
-            img.save(jpg_path, 'JPEG', quality=95, optimize=True)
+            # Save as JPG with high quality and preserved EXIF
+            save_kwargs = {
+                'quality': 95,
+                'optimize': True
+            }
             
-            logger.info(f"✅ Converted {heic_path.name} to {jpg_path.name}")
+            if exif_data:
+                save_kwargs['exif'] = exif_data
+                logger.info(f"📍 Preserving EXIF metadata (including geotagging) for {heic_path.name}")
+            else:
+                logger.info(f"ℹ️ No EXIF metadata found in {heic_path.name}")
+            
+            img.save(jpg_path, 'JPEG', **save_kwargs)
+            
+            # Verify metadata preservation
+            original_metadata = check_image_metadata(heic_path)
+            converted_metadata = check_image_metadata(jpg_path)
+            
+            if original_metadata.get('has_gps') and converted_metadata.get('has_gps'):
+                logger.info(f"✅ Converted {heic_path.name} to {jpg_path.name} - GPS data preserved")
+            elif original_metadata.get('has_exif') and converted_metadata.get('has_exif'):
+                logger.info(f"✅ Converted {heic_path.name} to {jpg_path.name} - EXIF data preserved")
+            else:
+                logger.info(f"✅ Converted {heic_path.name} to {jpg_path.name}")
+            
             return jpg_path
             
     except Exception as e:
