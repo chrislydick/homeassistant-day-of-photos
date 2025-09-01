@@ -19,13 +19,58 @@ from typing import List, Dict, Any, Optional
 from dotenv import load_dotenv
 from PIL import Image
 
+# AI Image Analysis imports
+try:
+    # Try LLM analyzer first (best for intelligent content evaluation with GPU)
+    from ai_image_analyzer_llm import create_analyzer
+    AI_AVAILABLE = True
+    AI_TYPE = "llm"
+    logging.info("✅ Using LLM AI Image Analyzer with intelligent content evaluation")
+except ImportError as e:
+    logging.warning(f"⚠️ Failed to import LLM analyzer: {e}")
+    try:
+        # Fall back to classifier analyzer
+        from ai_image_analyzer_classifier import create_analyzer
+        AI_AVAILABLE = True
+        AI_TYPE = "classifier"
+        logging.info("✅ Using Classifier AI Image Analyzer with document/screenshot detection")
+    except ImportError as e:
+        logging.warning(f"⚠️ Failed to import classifier analyzer: {e}")
+        try:
+            # Fall back to simplified analyzer
+            from ai_image_analyzer_simple import create_analyzer
+            AI_AVAILABLE = True
+            AI_TYPE = "simple"
+            logging.info("✅ Using robust AI Image Analyzer with computer vision techniques")
+        except ImportError as e:
+            logging.warning(f"⚠️ Failed to import simple analyzer: {e}")
+            try:
+                # Fall back to enhanced analyzer
+                from ai_image_analyzer_enhanced import create_analyzer
+                AI_AVAILABLE = True
+                AI_TYPE = "enhanced"
+                logging.info("✅ Using enhanced AI Image Analyzer with advanced computer vision")
+            except ImportError as e:
+                logging.warning(f"⚠️ Failed to import enhanced analyzer: {e}")
+                try:
+                    # Fall back to full AI analyzer if available
+                    from ai_image_analyzer import create_analyzer
+                    AI_AVAILABLE = True
+                    AI_TYPE = "full"
+                    logging.info("✅ Using full AI Image Analyzer with deep learning models")
+                except ImportError as e:
+                    logging.warning(f"⚠️ Failed to import full analyzer: {e}")
+                    AI_AVAILABLE = False
+                    logging.warning("⚠️ AI Image Analyzer not available. Install dependencies with: pip install -r requirements_standalone.txt")
+
 # Load environment variables
 load_dotenv()
 
 # Configure logging
 logging.basicConfig(
     level=logging.INFO,
-    format='%(asctime)s - %(levelname)s - %(message)s'
+    format='%(asctime)s - %(levelname)s - %(message)s',
+    force=True
 )
 logger = logging.getLogger(__name__)
 
@@ -285,7 +330,10 @@ class EnhancedOneDrivePhotosFetcher:
                 'Content-Type': 'application/json'
             }
             
+            logger.info(f"🔑 Using access token: {self.access_token[:20]}...")
+            
             # Optimized search: only look in relevant month folders for each year
+            logger.info(f"🚀 Starting optimized search for {years_back} years back")
             photos_found = self._search_optimized_by_month(
                 target_date=target_date,
                 years_back=years_back,
@@ -334,12 +382,14 @@ class EnhancedOneDrivePhotosFetcher:
                 
                 # Try to access the specific year/month folder directly
                 year_month_path = f"{self.photos_folder}/{past_year}/{month_str}"
+                logger.info(f"  📂 Accessing folder: {year_month_path}")
                 photos_in_year = self._search_specific_month_folder(
                     year_month_path=year_month_path,
                     search_date=historical_date,
                     headers=headers
                 )
                 
+                logger.info(f"  📊 Found {len(photos_in_year)} photos in {year_month_path}")
                 photos_found.extend(photos_in_year)
         
         return photos_found
@@ -356,28 +406,43 @@ class EnhancedOneDrivePhotosFetcher:
         try:
             # Try to access the specific year/month folder
             search_url = f"https://graph.microsoft.com/v1.0/me/drive/root:/{year_month_path}:/children"
+            logger.info(f"    🌐 Making API request to: {search_url}")
             response = requests.get(search_url, headers=headers, timeout=30)
+            logger.info(f"    📡 API response status: {response.status_code}")
             
             if response.status_code == 200:
                 items = response.json().get('value', [])
                 logger.info(f"  📁 Found {len(items)} items in {year_month_path}")
                 
+                # Log all items for debugging
                 for item in items:
                     if item.get('file'):
+                        logger.debug(f"    📄 Checking file: {item['name']}")
                         # Check if it's a photo file
                         file_extension = Path(item['name']).suffix.lower()
                         if file_extension in ['.jpg', '.jpeg', '.png', '.gif', '.bmp', '.tiff', '.heic', '.heif', '.webp', '.raw', '.cr2', '.nef']:
+                            logger.debug(f"    📷 Photo file detected: {item['name']}")
                             photo_date = self._get_photo_date(item)
                             
-                            if photo_date and photo_date.date() == search_date.date():
-                                logger.info(f"  📸 Found matching photo: {item['name']} ({photo_date.date()})")
-                                photos_found.append({
-                                    'item': item,
-                                    'date': search_date.date(),
-                                    'year_offset': search_date.year,
-                                    'photo_date': photo_date,
-                                    'folder_path': year_month_path
-                                })
+                            if photo_date:
+                                logger.debug(f"    📅 Photo date: {photo_date.date()} (searching for: {search_date.date()})")
+                                if photo_date.date() == search_date.date():
+                                    logger.info(f"  📸 Found matching photo: {item['name']} ({photo_date.date()})")
+                                    photos_found.append({
+                                        'item': item,
+                                        'date': search_date.date(),
+                                        'year_offset': search_date.year,
+                                        'photo_date': photo_date,
+                                        'folder_path': year_month_path
+                                    })
+                                else:
+                                    logger.debug(f"    ⏭️ Date mismatch: {item['name']} ({photo_date.date()} != {search_date.date()})")
+                            else:
+                                logger.debug(f"    ⚠️ Could not extract date from: {item['name']}")
+                        else:
+                            logger.debug(f"    📄 Not a photo file: {item['name']}")
+                    else:
+                        logger.debug(f"    📁 Folder: {item['name']}")
             else:
                 logger.info(f"  ⚠️ Month folder not found: {year_month_path} (status: {response.status_code})")
                 
@@ -565,11 +630,20 @@ def main():
     parser.add_argument("--skip-transfer", action="store_true", help="Skip transfer to Home Assistant")
     parser.add_argument("--no-cleanup", action="store_true", help="Don't clean up remote folder before transfer")
     
+    # AI Image Analysis arguments
+    parser.add_argument("--skip-ai-analysis", action="store_true", help="Skip AI-powered image quality analysis")
+    parser.add_argument("--ai-device", default="auto", choices=["auto", "cuda", "cpu"], help="Device for AI analysis (auto, cuda, cpu)")
+    parser.add_argument("--ai-confidence", type=float, default=0.6, help="Quality score threshold for good/bad classification (0.0-1.0)")
+    parser.add_argument("--filter-by-ai", action="store_true", help="Only transfer images classified as 'good' by AI")
+    parser.add_argument("--move-bad-images", action="store_true", help="Move bad images to a separate 'bad_images' folder")
+    
     args = parser.parse_args()
     
     # Get credentials from environment variables if not provided as arguments
     client_id = args.client_id or os.getenv("ONEDRIVE_CLIENT_ID")
     client_secret = args.client_secret or os.getenv("ONEDRIVE_CLIENT_SECRET")
+    
+
     
     if not client_id or not client_secret:
         logger.error("❌ ONEDRIVE_CLIENT_ID and ONEDRIVE_CLIENT_SECRET must be set in environment variables or provided as arguments")
@@ -633,6 +707,67 @@ def main():
             day_range=day_range,
             skip_existing=True
         )
+        
+        # AI Image Analysis (if available and requested)
+
+        if AI_AVAILABLE and not args.skip_ai_analysis and downloaded_files:
+            logger.info(f"🤖 Starting {AI_TYPE} AI-powered image quality analysis...")
+            try:
+                # Filter images by supported formats
+                supported_extensions = {'.jpg', '.jpeg', '.png', '.bmp', '.tiff'}
+                image_files = [f for f in downloaded_files if f.suffix.lower() in supported_extensions]
+
+                
+                if image_files:
+                    # Initialize AI analyzer
+                    if AI_TYPE == "simple":
+                        # Simple analyzer doesn't use device parameter
+                        analyzer = create_analyzer(confidence_threshold=args.ai_confidence)
+                    else:
+                        # GPU and full analyzers support device parameter
+                        analyzer = create_analyzer(
+                            device=args.ai_device,
+                            confidence_threshold=args.ai_confidence
+                        )
+                    
+                    # Analyze images
+                    analysis_results = analyzer.analyze_batch(image_files)
+                    
+                    # Separate good and bad images
+                    good_images = [Path(result['path']) for result in analysis_results['good']]
+                    bad_images = [Path(result['path']) for result in analysis_results['bad']]
+                    
+                    # Log analysis results
+                    logger.info(f"🎯 AI Analysis Results:")
+                    logger.info(f"   ✅ Good images: {len(good_images)}")
+                    logger.info(f"   ❌ Bad images: {len(bad_images)}")
+                    
+                    # Move bad images to a separate folder if requested
+                    if args.move_bad_images and bad_images:
+                        bad_images_dir = Path(args.output_dir) / "bad_images"
+                        bad_images_dir.mkdir(exist_ok=True)
+                        
+                        for bad_image in bad_images:
+                            try:
+                                shutil.move(str(bad_image), str(bad_images_dir / bad_image.name))
+                                logger.info(f"📁 Moved bad image to bad_images folder: {bad_image.name}")
+                            except Exception as e:
+                                logger.warning(f"⚠️ Failed to move bad image {bad_image.name}: {e}")
+                    
+                    # Use only good images for transfer
+                    if args.filter_by_ai:
+                        downloaded_files = good_images
+                        logger.info(f"🎯 Filtered to {len(downloaded_files)} good images for transfer")
+                    
+                    # Clean up AI analyzer
+                    analyzer.cleanup()
+                    
+                else:
+                    logger.info("ℹ️ No supported image files found for AI analysis")
+                    
+            except Exception as e:
+                logger.error(f"❌ AI analysis failed: {e}")
+                logger.info("ℹ️ Continuing with all downloaded images")
         
         # Transfer photos to Home Assistant server if requested
         if not args.skip_transfer and downloaded_files:

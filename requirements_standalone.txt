@@ -1,4 +1,13 @@
+# Core dependencies (always required)
 requests>=2.25.0
 python-dotenv>=0.19.0
 pillow>=9.0.0
 pillow-heif>=0.15.0
+
+# For simplified AI analyzer (recommended for Jetson)
+opencv-python>=4.7.0
+numpy>=1.21.0
+
+# For full AI analyzer with deep learning (optional, requires more setup)
+# torch>=1.13.0
+# torchvision>=0.14.0
