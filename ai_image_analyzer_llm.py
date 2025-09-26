@@ -321,10 +321,13 @@ class LLMImageAnalyzer:
             full_analysis = f"Image: {description}\nLLM Analysis: {llm_response}"
             
             # Determine if it's good based on LLM response
-            llm_response_lower = llm_response.lower()
+            # Strip leading/trailing whitespace to handle LLM formatting issues
+            llm_response_clean = llm_response.strip()
+            llm_response_lower = llm_response_clean.lower()
             
             # Debug logging
             logger.info(f"🔍 LLM Response: '{llm_response[:100]}...'")
+            logger.info(f"🔍 LLM Response Clean: '{llm_response_clean[:100]}...'")
             logger.info(f"🔍 LLM Response Lower: '{llm_response_lower[:100]}...'")
             logger.info(f"🔍 Starts with 'good:': {llm_response_lower.startswith('good:')}")
             
