@@ -331,13 +331,13 @@ class LLMImageAnalyzer:
             # First check for negative indicators (these override positive ones)
             has_negative = any(indicator in llm_response_lower for indicator in negative_indicators)
             
-            # Check for explicit GOOD/BAD indicators in LLM response
+            # Check for explicit GOOD/BAD indicators in LLM response (these take priority)
             if llm_response_lower.startswith("bad:") or "bad:" in llm_response_lower:
                 is_good = False
                 score = scoring.get("bad_score", 0.2)
                 category = "unsuitable_content"
-            elif llm_response_lower.startswith("good:") and not has_negative:
-                # Only consider "good:" if there are no negative indicators
+            elif llm_response_lower.startswith("good:"):
+                # Trust explicit "good:" classification from LLM
                 is_good = True
                 score = scoring.get("good_score", 0.8)
                 category = "good_photo"
