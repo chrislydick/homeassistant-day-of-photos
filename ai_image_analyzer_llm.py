@@ -324,9 +324,9 @@ class LLMImageAnalyzer:
             llm_response_lower = llm_response.lower()
             
             # Debug logging
-            logger.debug(f"🔍 LLM Response: '{llm_response[:100]}...'")
-            logger.debug(f"🔍 LLM Response Lower: '{llm_response_lower[:100]}...'")
-            logger.debug(f"🔍 Starts with 'good:': {llm_response_lower.startswith('good:')}")
+            logger.info(f"🔍 LLM Response: '{llm_response[:100]}...'")
+            logger.info(f"🔍 LLM Response Lower: '{llm_response_lower[:100]}...'")
+            logger.info(f"🔍 Starts with 'good:': {llm_response_lower.startswith('good:')}")
             
             # Get indicators from configuration
             negative_indicators = self.config.get("evaluation", {}).get("negative_indicators", [])
@@ -335,26 +335,26 @@ class LLMImageAnalyzer:
             
             # First check for negative indicators (these override positive ones)
             has_negative = any(indicator in llm_response_lower for indicator in negative_indicators)
-            logger.debug(f"🔍 Has negative indicators: {has_negative}")
+            logger.info(f"🔍 Has negative indicators: {has_negative}")
             if has_negative:
                 found_negatives = [indicator for indicator in negative_indicators if indicator in llm_response_lower]
-                logger.debug(f"🔍 Found negative indicators: {found_negatives}")
+                logger.info(f"🔍 Found negative indicators: {found_negatives}")
             
             # Check for explicit GOOD/BAD indicators in LLM response (these take priority)
             # Handle potential whitespace/newlines after the colon
             if llm_response_lower.startswith("bad:") or "bad:" in llm_response_lower:
-                logger.debug("🔍 Taking BAD path")
+                logger.info("🔍 Taking BAD path")
                 is_good = False
                 score = scoring.get("bad_score", 0.2)
                 category = "unsuitable_content"
             elif llm_response_lower.startswith("good:"):
-                logger.debug("🔍 Taking GOOD path")
+                logger.info("🔍 Taking GOOD path")
                 # Trust explicit "good:" classification from LLM
                 is_good = True
                 score = scoring.get("good_score", 0.8)
                 category = "good_photo"
             elif has_negative:
-                logger.debug("🔍 Taking NEGATIVE indicators path")
+                logger.info("🔍 Taking NEGATIVE indicators path")
                 # Negative indicators found, mark as bad regardless of other text
                 is_good = False
                 score = scoring.get("bad_score", 0.2)
